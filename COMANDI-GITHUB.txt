@@ -1,0 +1,61 @@
+=== COMANDI PER GITHUB PAGES ===
+
+STEP 1: Genera le icone
+------------------------
+1. Apri nel browser: icons/generate-icons.html
+2. Scarica tutte le icone nella cartella icons/
+
+
+STEP 2: Inizializza Git (nella cartella del progetto)
+------------------------
+git init
+git add .
+git commit -m "Initial commit - JUVLAN game"
+git branch -M main
+
+
+STEP 3: Crea repository su GitHub
+------------------------
+1. Vai su: https://github.com/new
+2. Nome: juvlan
+3. Public
+4. NON aggiungere README
+5. Click "Create repository"
+
+
+STEP 4: Collega e pusha (sostituisci TUO-USERNAME)
+------------------------
+git remote add origin https://github.com/TUO-USERNAME/juvlan.git
+git push -u origin main
+
+
+STEP 5: Abilita GitHub Pages
+------------------------
+1. Vai su: https://github.com/TUO-USERNAME/juvlan
+2. Settings → Pages
+3. Source: Branch "main", folder "/ (root)"
+4. Save
+
+
+STEP 6: Apri sul telefono
+------------------------
+URL: https://TUO-USERNAME.github.io/juvlan/
+
+Aspetta 2-3 minuti dopo il push per il deploy!
+
+
+=== AGGIORNAMENTI FUTURI ===
+
+git add .
+git commit -m "Descrizione modifiche"
+git push
+
+
+=== PROBLEMI? ===
+
+- Se chiede password, usa Personal Access Token da:
+  https://github.com/settings/tokens
+
+- Se vedi 404, aspetta 2-3 minuti
+
+- Leggi GITHUB-DEPLOY.md per guida completa

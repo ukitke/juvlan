@@ -1,0 +1,17 @@
+⚠️ IMPORTANTE: GENERA LE ICONE PRIMA DI DEPLOYARE ⚠️
+
+Le icone sono necessarie per la PWA. Hai 2 opzioni:
+
+OPZIONE 1 - VELOCE (2 minuti):
+1. Apri icons/generate-icons.html nel browser
+2. Clicca "Generate All Icons"
+3. Scarica ogni icona cliccando "Download"
+4. Salva nella cartella icons/ con i nomi corretti
+
+OPZIONE 2 - ONLINE (1 minuto):
+1. Vai su https://realfavicongenerator.net/
+2. Carica icons/icon-template.svg
+3. Scarica il pacchetto
+4. Estrai nella cartella icons/
+
+Dopo aver generato le icone, puoi procedere con il deploy su GitHub!

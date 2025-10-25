@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JUVLAN - Quiz Serie A</title>
+    <link rel="stylesheet" href="styles/main.css">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0f3460">
+    <meta name="description" content="Un quiz personalizzato di Serie A basato sulla vostra chat WhatsApp">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="JUVLAN">
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Favicon and Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180x180.png">
+</head>
+<body>
+    <div id="app">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen active">
+            <div class="container">
+                <header class="game-header">
+                    <h1 class="game-title">JUVLAN</h1>
+                    <p class="game-subtitle">L'Infiltrazione di Dionis</p>
+                </header>
+                
+                <div class="welcome-content">
+                    <div class="intro-text">
+                        <p><strong>🎭 LA MISSIONE:</strong> Dionis deve infiltrarsi tra i Juvlanisti per sconfiggerli dall'interno!</p>
+                        <p><strong>🎯 FASE 1:</strong> Devi pensare come loro - rispondi alle domande come farebbe un Juvlanista (anche se sbagliano).</p>
+                        <p><strong>🔥 OBIETTIVO:</strong> Ottieni almeno 5 risposte "da Juvlanista" su 10 per passare alla Fase 2!</p>
+                    </div>
+                    
+                    <div class="game-preview">
+                        <div class="preview-stats">
+                            <div class="stat-item">
+                                <span class="stat-number">FASE 1</span>
+                                <span class="stat-label">Infiltrazione</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">10</span>
+                                <span class="stat-label">Domande</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">5/10</span>
+                                <span class="stat-label">Per Passare</span>
+                            </div>
+                        </div>
+                        
+                        <div class="featured-moments">
+                            <h3>🎭 La Storia:</h3>
+                            <p style="text-align: left; padding: 0 1rem;">
+                                Dionis, stanco delle continue lamentele dei Juvlanisti (Briks, Vida, Sem, Roland, Denis, Leo), 
+                                decide di infiltrarsi nel loro gruppo per sconfiggerli dall'interno. 
+                                <br><br>
+                                Per farlo, deve prima imparare a pensare come loro - con tutti i loro bias pro-Milan/Juve 
+                                e le loro teorie complottiste sull'Inter. 
+                                <br><br>
+                                <strong>Riesci a diventare un vero Juvlanista?</strong>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="start-game-btn">
+                            Inizia l'Infiltrazione 🎭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="container">
+                <header class="game-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="game-stats">
+                        <span class="question-counter" id="question-counter">1 / 15</span>
+                        <span class="score-display" id="score-display">Punteggio: 0</span>
+                    </div>
+                </header>
+                
+                <div class="question-content">
+                    <div class="question-card">
+                        <div class="question-type" id="question-type">Previsione Fallita</div>
+                        <h2 class="question-text" id="question-text">Caricamento domanda...</h2>
+                        
+                        <div class="answer-options" id="answer-options">
+                            <!-- Answer buttons will be generated here -->
+                        </div>
+                        
+                        <div class="question-context" id="question-context" hidden>
+                            <div class="context-header">Chat Originale:</div>
+                            <div class="context-content"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="feedback-overlay" id="feedback-overlay" hidden>
+                    <div class="feedback-content">
+                        <div class="feedback-icon" id="feedback-icon"></div>
+                        <div class="feedback-text" id="feedback-text"></div>
+                        <div class="feedback-explanation" id="feedback-explanation"></div>
+                        <button class="btn btn-primary" id="next-question-btn">Prossima Domanda</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Phase 2 Screen (Bomberman) -->
+        <div id="phase2-screen" class="screen">
+            <div class="container">
+                <header class="phase2-header">
+                    <h1>🎮 FASE 2: Nel Covo dei Juvlanisti</h1>
+                    <p>Usa le FRECCE per muoverti, SPAZIO per piazzare bombe!</p>
+                </header>
+                
+                <div class="game-container">
+                    <canvas id="bomberman-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Screen -->
+        <div id="results-screen" class="screen">
+            <div class="container">
+                <header class="results-header">
+                    <h1>Gioco Completato!</h1>
+                </header>
+                
+                <div class="results-content">
+                    <div class="final-score">
+                        <div class="score-circle">
+                            <span class="score-number" id="final-score">0</span>
+                            <span class="score-label">punti</span>
+                        </div>
+                        <div class="accuracy" id="final-accuracy">0% corrette</div>
+                    </div>
+                    
+                    <div class="performance-roast" id="performance-roast">
+                        <!-- Personalized roast will be generated here -->
+                    </div>
+                    
+                    <div class="results-breakdown" id="results-breakdown">
+                        <!-- Category breakdown will be shown here -->
+                    </div>
+                    
+                    <div class="personality-hits" id="personality-hits">
+                        <!-- Friend-specific question results -->
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="play-again-btn">Gioca Ancora</button>
+                        <button class="btn btn-secondary" id="share-results-btn">Condividi Risultati</button>
+                        <button class="btn btn-tertiary" id="clear-data-btn">Cancella Dati</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="overlay" hidden>
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p class="loading-text" id="loading-text">Elaborazione dati chat...</p>
+            </div>
+        </div>
+        
+        <!-- PWA Install Prompt -->
+        <div id="install-prompt" class="install-prompt" hidden>
+            <div class="install-content">
+                <div class="install-icon">📱</div>
+                <div class="install-text">
+                    <strong>Installa JUVLAN</strong>
+                    <p>Aggiungi alla home screen per un'esperienza migliore!</p>
+                </div>
+                <div class="install-actions">
+                    <button class="btn btn-primary btn-small" id="install-btn">Installa</button>
+                    <button class="btn btn-tertiary btn-small" id="dismiss-install-btn">Più tardi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/juvlan-complete.js"></script>
+    <script src="js/phase2-bomberman.js"></script>
+    <script src="js/pwa-handler.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered successfully:', registration.scope);
+                        
+                        // Check for updates periodically
+                        setInterval(() => {
+                            registration.update();
+                        }, 60000); // Check every minute
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

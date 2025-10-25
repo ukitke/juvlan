@@ -607,79 +607,69 @@ body {
     position: fixed;
     bottom: 20px;
     left: 20px;
-    z-index: 1000;
-    display: none;
-}
-
-#phase2-screen.active #virtual-joystick {
-    display: block !important;
-}
-
-@media (max-width: 1023px) {
-    #phase2-screen.active #virtual-joystick {
-        display: block !important;
-    }
+    z-index: 9999;
+    display: block;
+    visibility: visible;
+    opacity: 1;
 }
 
 .joystick-base {
-    width: 100px;
-    height: 100px;
-    background: rgba(78, 205, 196, 0.3);
-    border: 3px solid #4ecdc4;
+    width: 120px;
+    height: 120px;
+    background: rgba(78, 205, 196, 0.5);
+    border: 4px solid #4ecdc4;
     border-radius: 50%;
     position: relative;
     touch-action: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .joystick-stick {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     background: #4ecdc4;
+    border: 3px solid white;
     border-radius: 50%;
     position: absolute;
-    left: 50px;
-    top: 50px;
+    left: 60px;
+    top: 60px;
     transform: translate(-50%, -50%);
     pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 #bomb-button {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 80px;
-    height: 80px;
+    width: 90px;
+    height: 90px;
     background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-    border: 3px solid #ff6b6b;
+    border: 4px solid #ff6b6b;
     border-radius: 50%;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
-    z-index: 1000;
+    font-size: 45px;
+    z-index: 9999;
     touch-action: none;
-    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.5);
-}
-
-#phase2-screen.active #bomb-button {
-    display: flex !important;
-}
-
-@media (max-width: 1023px) {
-    #phase2-screen.active #bomb-button {
-        display: flex !important;
-    }
+    box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6);
+    visibility: visible;
+    opacity: 1;
 }
 
 #bomb-button:active {
     transform: scale(0.9);
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.6);
 }
 
-/* Hide touch controls on desktop */
+/* Hide ONLY on desktop */
 @media (min-width: 1024px) {
-    #phase2-screen.active #virtual-joystick,
-    #phase2-screen.active #bomb-button {
-        display: none !important;
+    #virtual-joystick {
+        display: none;
+    }
+    #bomb-button {
+        display: none;
     }
 }
 

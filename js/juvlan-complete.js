@@ -47,8 +47,12 @@ class ChatAnalyzer {
     }
     
     getPreBuiltQuestions() {
-        // FASE 1: Domande dove devi rispondere come un Juvlanista
-        // La risposta "corretta" è quella che direbbe un Juvlanista (anche se sbagliata nella realtà)
+        // FASE 1: Usa il banco domande esterno se disponibile
+        if (typeof QUESTIONS_BANK !== 'undefined') {
+            return getRandomQuestions(10);
+        }
+        
+        // Fallback: domande base se il file esterno non è caricato
         return [
             {
                 id: 'juvlan-1',
@@ -481,6 +485,7 @@ class UIManager {
             button.className = 'answer-btn';
             button.textContent = option;
             button.dataset.index = index;
+            button.style.pointerEvents = 'auto'; // Assicura che i pulsanti siano cliccabili
             
             optionsContainer.appendChild(button);
         });
@@ -672,6 +677,28 @@ class JuvlanApp {
         document.getElementById('clear-data-btn').addEventListener('click', () => {
             this.clearAllData();
         });
+        
+        // Audio controls (will be available in Phase 2)
+        const toggleSoundBtn = document.getElementById('toggle-sound-btn');
+        const toggleSpeechBtn = document.getElementById('toggle-speech-btn');
+        
+        if (toggleSoundBtn) {
+            toggleSoundBtn.addEventListener('click', () => {
+                if (this.bombermanGame && this.bombermanGame.audioManager) {
+                    const enabled = this.bombermanGame.audioManager.toggleSound();
+                    toggleSoundBtn.classList.toggle('muted', !enabled);
+                }
+            });
+        }
+        
+        if (toggleSpeechBtn) {
+            toggleSpeechBtn.addEventListener('click', () => {
+                if (this.bombermanGame && this.bombermanGame.audioManager) {
+                    const enabled = this.bombermanGame.audioManager.toggleSpeech();
+                    toggleSpeechBtn.classList.toggle('muted', !enabled);
+                }
+            });
+        }
     }
     
     startGame() {
@@ -711,8 +738,12 @@ class JuvlanApp {
     
     setupAnswerHandlers(question) {
         const answerButtons = document.querySelectorAll('.answer-btn');
+        console.log('JUVLAN: Configurando handler per', answerButtons.length, 'pulsanti');
+        
         answerButtons.forEach((btn, index) => {
+            // Aggiungi event listener direttamente (i pulsanti sono appena creati, non hanno listener vecchi)
             btn.addEventListener('click', () => {
+                console.log('JUVLAN: Pulsante cliccato, index:', index);
                 this.handleAnswer(question, index);
             });
         });

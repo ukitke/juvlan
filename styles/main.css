@@ -380,11 +380,15 @@ body {
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.9);
-    display: flex;
+    display: none; /* Nascosto di default */
     align-items: center;
     justify-content: center;
     z-index: 500;
     padding: 1rem;
+}
+
+.feedback-overlay[style*="display: flex"] {
+    display: flex; /* Mostrato quando JavaScript imposta display: flex */
 }
 
 .feedback-content {
@@ -806,4 +810,49 @@ summary:focus {
     50% {
         opacity: 0.7;
     }
+}
+
+
+/* Audio Controls */
+.audio-controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 10px;
+    z-index: 9999;
+}
+
+.audio-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #4ecdc4;
+    background: rgba(26, 26, 46, 0.9);
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.audio-btn:hover {
+    background: #4ecdc4;
+    transform: scale(1.1);
+}
+
+.audio-btn:active {
+    transform: scale(0.95);
+}
+
+.audio-btn.muted {
+    opacity: 0.5;
+    border-color: #ff6b6b;
+}
+
+.audio-btn.muted::after {
+    content: '🔇';
+    position: absolute;
 }

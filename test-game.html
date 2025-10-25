@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JUVLAN - Automated Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #fff;
+        }
+        h1 { color: #4ecdc4; }
+        h2 { color: #ff6b6b; margin-top: 30px; }
+        .test-section {
+            background: #16213e;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4ecdc4;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .pass {
+            background: #2d5016;
+            border-left: 4px solid #4ecdc4;
+        }
+        .fail {
+            background: #501616;
+            border-left: 4px solid #ff6b6b;
+        }
+        .warning {
+            background: #504516;
+            border-left: 4px solid #ffd700;
+        }
+        .summary {
+            background: #0f3460;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-size: 18px;
+        }
+        button {
+            background: #4ecdc4;
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45b8ac;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 JUVLAN - Automated Test Suite</h1>
+    
+    <div class="test-section">
+        <h3>Test Controls</h3>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="testQuestions()">Test Questions Only</button>
+        <button onclick="testAudio()">Test Audio Only</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script src="js/questions-bank.js"></script>
+    <script src="js/audio-manager.js"></script>
+    
+    <script>
+        const results = document.getElementById('results');
+        let passCount = 0;
+        let failCount = 0;
+        let warnCount = 0;
+        
+        function clearResults() {
+            results.innerHTML = '';
+            passCount = 0;
+            failCount = 0;
+            warnCount = 0;
+        }
+        
+        function addResult(message, status = 'pass') {
+            const div = document.createElement('div');
+            div.className = `test-result ${status}`;
+            div.innerHTML = `${status === 'pass' ? '✅' : status === 'fail' ? '❌' : '⚠️'} ${message}`;
+            results.appendChild(div);
+            
+            if (status === 'pass') passCount++;
+            else if (status === 'fail') failCount++;
+            else warnCount++;
+        }
+        
+        function addSection(title) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = `<h2>${title}</h2>`;
+            results.appendChild(section);
+            return section;
+        }
+        
+        function addSummary() {
+            const total = passCount + failCount + warnCount;
+            const summary = document.createElement('div');
+            summary.className = 'summary';
+            summary.innerHTML = `
+                <h2>Test Summary</h2>
+                <p><strong>Total Tests:</strong> ${total}</p>
+                <p><strong>Passed:</strong> ${passCount} (${Math.round(passCount/total*100)}%)</p>
+                <p><strong>Failed:</strong> ${failCount} (${Math.round(failCount/total*100)}%)</p>
+                <p><strong>Warnings:</strong> ${warnCount} (${Math.round(warnCount/total*100)}%)</p>
+                <p><strong>Status:</strong> ${failCount === 0 ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}</p>
+            `;
+            results.appendChild(summary);
+        }
+        
+        function testQuestions() {
+            const section = addSection('📝 Question Bank Tests');
+            
+            // Test 1: Check if QUESTIONS_BANK exists
+            if (typeof QUESTIONS_BANK !== 'undefined') {
+                addResult('QUESTIONS_BANK object exists');
+            } else {
+                addResult('QUESTIONS_BANK object not found', 'fail');
+                return;
+            }
+            
+            // Test 2: Check all categories
+            const categories = ['predictionFails', 'controversialStatements', 'refereeConspiracy', 
+                              'playerDebates', 'insideJokes', 'fantacalcio'];
+            categories.forEach(cat => {
+                if (QUESTIONS_BANK[cat] && Array.isArray(QUESTIONS_BANK[cat])) {
+                    addResult(`Category "${cat}" exists with ${QUESTIONS_BANK[cat].length} questions`);
+                } else {
+                    addResult(`Category "${cat}" missing or invalid`, 'fail');
+                }
+            });
+            
+            // Test 3: Count total questions
+            let totalQuestions = 0;
+            categories.forEach(cat => {
+                if (QUESTIONS_BANK[cat]) totalQuestions += QUESTIONS_BANK[cat].length;
+            });
+            
+            if (totalQuestions === 100) {
+                addResult(`Total questions: ${totalQuestions} ✅ (Expected: 100)`);
+            } else {
+                addResult(`Total questions: ${totalQuestions} ⚠️ (Expected: 100)`, 'warning');
+            }
+            
+            // Test 4: Validate question structure
+            let structureErrors = 0;
+            categories.forEach(cat => {
+                if (!QUESTIONS_BANK[cat]) return;
+                
+                QUESTIONS_BANK[cat].forEach((q, idx) => {
+                    const required = ['id', 'type', 'question', 'options', 'correctAnswer', 'explanation'];
+                    const missing = required.filter(field => !q.hasOwnProperty(field));
+                    
+                    if (missing.length > 0) {
+                        addResult(`${cat}[${idx}] missing fields: ${missing.join(', ')}`, 'fail');
+                        structureErrors++;
+                    }
+                    
+                    // Check options array
+                    if (q.options && (!Array.isArray(q.options) || q.options.length !== 4)) {
+                        addResult(`${cat}[${idx}] invalid options array (expected 4 options)`, 'fail');
+                        structureErrors++;
+                    }
+                    
+                    // Check correctAnswer range
+                    if (q.correctAnswer !== undefined && (q.correctAnswer < 0 || q.correctAnswer > 3)) {
+                        addResult(`${cat}[${idx}] invalid correctAnswer: ${q.correctAnswer} (expected 0-3)`, 'fail');
+                        structureErrors++;
+                    }
+                });
+            });
+            
+            if (structureErrors === 0) {
+                addResult('All questions have valid structure');
+            } else {
+                addResult(`Found ${structureErrors} structure errors`, 'fail');
+            }
+            
+            // Test 5: Check for duplicate IDs
+            const allIds = [];
+            categories.forEach(cat => {
+                if (!QUESTIONS_BANK[cat]) return;
+                QUESTIONS_BANK[cat].forEach(q => allIds.push(q.id));
+            });
+            
+            const uniqueIds = new Set(allIds);
+            if (allIds.length === uniqueIds.size) {
+                addResult('All question IDs are unique');
+            } else {
+                addResult(`Found ${allIds.length - uniqueIds.size} duplicate IDs`, 'fail');
+            }
+            
+            // Test 6: Test random selection function
+            if (typeof getRandomQuestions === 'function') {
+                addResult('getRandomQuestions() function exists');
+                
+                const random10 = getRandomQuestions(10);
+                if (random10.length === 10) {
+                    addResult('getRandomQuestions(10) returns 10 questions');
+                } else {
+                    addResult(`getRandomQuestions(10) returned ${random10.length} questions`, 'fail');
+                }
+                
+                // Check for duplicates in random selection
+                const randomIds = random10.map(q => q.id);
+                const uniqueRandomIds = new Set(randomIds);
+                if (randomIds.length === uniqueRandomIds.size) {
+                    addResult('Random selection has no duplicates');
+                } else {
+                    addResult('Random selection contains duplicates', 'fail');
+                }
+            } else {
+                addResult('getRandomQuestions() function not found', 'fail');
+            }
+            
+            // Test 7: Test category selection function
+            if (typeof getQuestionsByCategory === 'function') {
+                addResult('getQuestionsByCategory() function exists');
+                
+                const predFails = getQuestionsByCategory('predictionFails', 5);
+                if (predFails.length === 5) {
+                    addResult('getQuestionsByCategory() returns correct count');
+                } else {
+                    addResult(`getQuestionsByCategory() returned ${predFails.length} questions`, 'warning');
+                }
+            } else {
+                addResult('getQuestionsByCategory() function not found', 'warning');
+            }
+        }
+        
+        function testAudio() {
+            const section = addSection('🔊 Audio System Tests');
+            
+            // Test 1: Check if AudioManager exists
+            if (typeof AudioManager !== 'undefined') {
+                addResult('AudioManager class exists');
+            } else {
+                addResult('AudioManager class not found', 'fail');
+                return;
+            }
+            
+            // Test 2: Create AudioManager instance
+            let audioManager;
+            try {
+                audioManager = new AudioManager();
+                addResult('AudioManager instance created successfully');
+            } catch (e) {
+                addResult(`Failed to create AudioManager: ${e.message}`, 'fail');
+                return;
+            }
+            
+            // Test 3: Check Web Audio API support
+            if (audioManager.audioContext) {
+                addResult('Web Audio API context initialized');
+            } else {
+                addResult('Web Audio API not supported', 'warning');
+            }
+            
+            // Test 4: Check methods exist
+            const methods = ['playBombPlace', 'playExplosion', 'playHit', 'playPowerUp', 
+                           'playLevelComplete', 'playGameOver', 'speak', 'speakLevelComplete',
+                           'speakVictory', 'speakGameOver', 'toggleSound', 'toggleSpeech', 'setVolume'];
+            
+            methods.forEach(method => {
+                if (typeof audioManager[method] === 'function') {
+                    addResult(`Method ${method}() exists`);
+                } else {
+                    addResult(`Method ${method}() not found`, 'fail');
+                }
+            });
+            
+            // Test 5: Check level messages
+            if (audioManager.levelMessages) {
+                const levels = Object.keys(audioManager.levelMessages);
+                if (levels.length === 5) {
+                    addResult(`Level messages defined for ${levels.length} levels`);
+                } else {
+                    addResult(`Level messages: ${levels.length} (expected 5)`, 'warning');
+                }
+            } else {
+                addResult('Level messages not found', 'fail');
+            }
+            
+            // Test 6: Check Speech Synthesis support
+            if ('speechSynthesis' in window) {
+                addResult('Speech Synthesis API supported');
+            } else {
+                addResult('Speech Synthesis API not supported', 'warning');
+            }
+            
+            // Test 7: Test volume control
+            audioManager.setVolume(0.5);
+            if (audioManager.volume === 0.5) {
+                addResult('Volume control works');
+            } else {
+                addResult('Volume control failed', 'fail');
+            }
+            
+            // Test 8: Test toggle functions
+            const soundState = audioManager.toggleSound();
+            if (typeof soundState === 'boolean') {
+                addResult('toggleSound() returns boolean');
+            } else {
+                addResult('toggleSound() invalid return type', 'fail');
+            }
+            
+            const speechState = audioManager.toggleSpeech();
+            if (typeof speechState === 'boolean') {
+                addResult('toggleSpeech() returns boolean');
+            } else {
+                addResult('toggleSpeech() invalid return type', 'fail');
+            }
+        }
+        
+        function testBombermanGame() {
+            const section = addSection('🎮 Bomberman Game Tests');
+            
+            // Test 1: Check if BombermanGame exists
+            if (typeof BombermanGame !== 'undefined') {
+                addResult('BombermanGame class exists');
+            } else {
+                addResult('BombermanGame class not found (needs to be loaded)', 'warning');
+                return;
+            }
+            
+            // Note: Can't fully test without canvas element
+            addResult('Full Bomberman tests require canvas element', 'warning');
+        }
+        
+        function runAllTests() {
+            clearResults();
+            
+            addSection('🚀 Running All Tests...');
+            
+            testQuestions();
+            testAudio();
+            testBombermanGame();
+            
+            addSummary();
+        }
+        
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            console.log('Test page loaded. Click "Run All Tests" to begin.');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Controlli Touch</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a2e;
+            color: white;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 10000;
+        }
+        
+        /* CONTROLLI TOUCH */
+        #virtual-joystick {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 99999;
+            pointer-events: auto;
+        }
+        
+        .joystick-base {
+            width: 120px;
+            height: 120px;
+            background: rgba(78, 205, 196, 0.5);
+            border: 4px solid #4ecdc4;
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        .joystick-stick {
+            width: 50px;
+            height: 50px;
+            background: #4ecdc4;
+            border: 3px solid white;
+            border-radius: 50%;
+            position: absolute;
+            left: 60px;
+            top: 60px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        #bomb-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+            border: 4px solid #ff6b6b;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 45px;
+            z-index: 99999;
+            touch-action: none;
+            box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6);
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        #bomb-button:active {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h2>🎮 Test Controlli Touch</h2>
+        <p id="status">Inizializzazione...</p>
+        <p id="joystick-status">Joystick: -</p>
+        <p id="bomb-status">Bomba: -</p>
+    </div>
+    
+    <h1>Se vedi i controlli in basso, funzionano! ✅</h1>
+    
+    <!-- Controlli creati da JavaScript -->
+    
+    <script>
+        console.log('🎮 Test controlli touch iniziato');
+        
+        // Crea joystick
+        const joystick = document.createElement('div');
+        joystick.id = 'virtual-joystick';
+        joystick.innerHTML = `
+            <div class="joystick-base">
+                <div class="joystick-stick" id="joystick-stick"></div>
+            </div>
+        `;
+        document.body.appendChild(joystick);
+        console.log('✅ Joystick creato');
+        
+        // Crea pulsante bomba
+        const bombBtn = document.createElement('div');
+        bombBtn.id = 'bomb-button';
+        bombBtn.innerHTML = '💣';
+        document.body.appendChild(bombBtn);
+        console.log('✅ Pulsante bomba creato');
+        
+        document.getElementById('status').textContent = 'Controlli creati! ✅';
+        
+        // Test joystick
+        const base = joystick.querySelector('.joystick-base');
+        const stick = joystick.querySelector('.joystick-stick');
+        
+        let joystickActive = false;
+        let joystickStartX = 0;
+        let joystickStartY = 0;
+        
+        base.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            joystickActive = true;
+            const touch = e.touches[0];
+            const rect = base.getBoundingClientRect();
+            joystickStartX = rect.left + rect.width / 2;
+            joystickStartY = rect.top + rect.height / 2;
+            document.getElementById('joystick-status').textContent = 'Joystick: ATTIVO 🟢';
+            console.log('Joystick touchstart');
+        });
+        
+        base.addEventListener('touchmove', (e) => {
+            if (!joystickActive) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - joystickStartX;
+            const deltaY = touch.clientY - joystickStartY;
+            
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = 40;
+            
+            if (distance > maxDistance) {
+                const angle = Math.atan2(deltaY, deltaX);
+                stick.style.left = `${Math.cos(angle) * maxDistance + 60}px`;
+                stick.style.top = `${Math.sin(angle) * maxDistance + 60}px`;
+            } else {
+                stick.style.left = `${deltaX + 60}px`;
+                stick.style.top = `${deltaY + 60}px`;
+            }
+            
+            document.getElementById('joystick-status').textContent = `Joystick: X=${deltaX.toFixed(0)} Y=${deltaY.toFixed(0)}`;
+        });
+        
+        base.addEventListener('touchend', () => {
+            joystickActive = false;
+            stick.style.left = '60px';
+            stick.style.top = '60px';
+            document.getElementById('joystick-status').textContent = 'Joystick: RILASCIATO ⚪';
+            console.log('Joystick touchend');
+        });
+        
+        // Test pulsante bomba
+        let bombCount = 0;
+        bombBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            bombCount++;
+            document.getElementById('bomb-status').textContent = `Bomba: PREMUTO ${bombCount}x 💥`;
+            console.log('Bomba premuta:', bombCount);
+            
+            setTimeout(() => {
+                document.getElementById('bomb-status').textContent = `Bomba: ${bombCount} volte`;
+            }, 500);
+        });
+        
+        console.log('✅ Event listeners configurati');
+        console.log('📱 Prova a toccare i controlli!');
+    </script>
+</body>
+</html>

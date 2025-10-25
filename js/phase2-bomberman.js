@@ -29,6 +29,10 @@ class BombermanGame {
         this.player = {
             x: 1,
             y: 1,
+            renderX: 1, // Posizione interpolata per rendering smooth
+            renderY: 1,
+            targetX: 1, // Posizione target per interpolazione
+            targetY: 1,
             emoji: '😎',
             maxBombs: 1,
             bombPower: 1,
@@ -37,7 +41,8 @@ class BombermanGame {
             animationFrame: 0,
             animationTime: 0,
             direction: 'down',
-            isMoving: false
+            isMoving: false,
+            moveProgress: 1 // 0-1 per interpolazione smooth
         };
         
         // Enemies (Juvlanisti) - inizializzati per livello
@@ -55,6 +60,8 @@ class BombermanGame {
         this.enemyMoveInterval = 800;
         this.lastEnemyMoveTime = 0;
         this.screenShake = { active: false, intensity: 0, duration: 0, startTime: 0 };
+        this.flashScreen = { active: false, color: '#ffffff', opacity: 0, duration: 0, startTime: 0 };
+        this.slowMotion = { active: false, factor: 1, duration: 0, startTime: 0 };
         this.score = 0;
         this.scoreAnimations = [];
         
@@ -345,6 +352,10 @@ class BombermanGame {
         
         if (newX !== this.player.x || newY !== this.player.y) {
             if (this.canMoveTo(newX, newY)) {
+                // Imposta target per interpolazione smooth
+                this.player.targetX = newX;
+                this.player.targetY = newY;
+                this.player.moveProgress = 0; // Inizia interpolazione
                 this.player.x = newX;
                 this.player.y = newY;
                 this.player.isMoving = true;
@@ -414,13 +425,14 @@ class BombermanGame {
         // Suono esplosione
         this.audioManager.playExplosion();
         
-        // Screen shake
+        // Screen shake e flash per esplosione
         this.screenShake = {
             active: true,
             intensity: 5,
             duration: 300,
             startTime: Date.now()
         };
+        this.startFlashScreen('#ffffff', 0.3, 100);
         
         const explosionCells = [{ x: bomb.x, y: bomb.y }];
         
@@ -447,6 +459,9 @@ class BombermanGame {
                 if (wall && wall.destructible) {
                     this.walls = this.walls.filter(w => !(w.x === x && w.y === y));
                     
+                    // Crea particelle debris per muro distrutto
+                    this.createWallDebrisParticles(x, y);
+                    
                     // Chance di power-up
                     if (Math.random() < 0.3) {
                         const type = Math.random() < 0.5 ? 'bombs' : 'power';
@@ -472,6 +487,8 @@ class BombermanGame {
             // Controlla se colpisce player
             if (cell.x === this.player.x && cell.y === this.player.y) {
                 this.createHitParticles(cell.x, cell.y, '#ff6b6b');
+                this.startFlashScreen('#ff0000', 0.6, 200); // Red flash
+                this.startSlowMotion(0.2, 400); // Slow-mo
                 this.gameOver = true;
             }
             
@@ -483,16 +500,22 @@ class BombermanGame {
                         enemy.health--;
                         if (enemy.health <= 0) {
                             enemy.alive = false;
+                            enemy.deathTime = Date.now();
+                            enemy.deathAnimation = true;
                             this.score += 500;
                             this.createScoreAnimation(cell.x, cell.y, '+500');
+                            this.createDeathParticles(cell.x, cell.y);
                         } else {
                             this.score += 100;
                             this.createScoreAnimation(cell.x, cell.y, '+100');
                         }
                     } else {
                         enemy.alive = false;
+                        enemy.deathTime = Date.now();
+                        enemy.deathAnimation = true;
                         this.score += 200;
                         this.createScoreAnimation(cell.x, cell.y, '+200');
+                        this.createDeathParticles(cell.x, cell.y);
                     }
                 }
             });
@@ -557,12 +580,14 @@ class BombermanGame {
         this.enemies.forEach(enemy => {
             if (enemy.alive && enemy.x === this.player.x && enemy.y === this.player.y) {
                 this.player.lives--;
+                this.startFlashScreen('#ff6b6b', 0.5, 150); // Flash when hit
                 
                 // Suono colpo
                 this.audioManager.playHit();
                 
                 if (this.player.lives <= 0) {
                     this.gameOver = true;
+                    this.startSlowMotion(0.3, 500); // Slow-mo on death
                     this.audioManager.playGameOver();
                     setTimeout(() => this.audioManager.speakGameOver(), 500);
                 } else {
@@ -625,9 +650,29 @@ class BombermanGame {
         const centerX = x * this.gridSize + this.gridSize / 2;
         const centerY = y * this.gridSize + this.gridSize / 2;
         
+        // Scintille veloci (Inter colors: nero e azzurro)
+        for (let i = 0; i < 20; i++) {
+            const angle = (Math.PI * 2 * i) / 20;
+            const speed = 3 + Math.random() * 4;
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.025,
+                size: 2 + Math.random() * 2,
+                color: Math.random() > 0.5 ? '#0096ff' : '#000000',
+                type: 'spark',
+                glow: true,
+                rotation: angle
+            });
+        }
+        
+        // Particelle circolari colorate
         for (let i = 0; i < 15; i++) {
-            const angle = (Math.PI * 2 * i) / 15;
-            const speed = 2 + Math.random() * 3;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 2.5;
             this.particles.push({
                 x: centerX,
                 y: centerY,
@@ -635,9 +680,28 @@ class BombermanGame {
                 vy: Math.sin(angle) * speed,
                 life: 1.0,
                 decay: 0.02,
-                size: 3 + Math.random() * 3,
-                color: Math.random() > 0.5 ? '#ff6b00' : '#ffaa00',
-                type: 'explosion'
+                size: 4 + Math.random() * 4,
+                color: ['#ff6b00', '#ffaa00', '#0096ff'][Math.floor(Math.random() * 3)],
+                type: 'circle',
+                glow: true
+            });
+        }
+        
+        // Fumo
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.5 + Math.random();
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.5,
+                life: 1.0,
+                decay: 0.015,
+                size: 8 + Math.random() * 8,
+                color: 'rgba(50, 50, 50, 0.5)',
+                type: 'smoke',
+                opacity: 0.6
             });
         }
     }
@@ -663,13 +727,14 @@ class BombermanGame {
         }
     }
     
-    createPowerupParticles(x, y) {
+    createDeathParticles(x, y) {
         const centerX = x * this.gridSize + this.gridSize / 2;
         const centerY = y * this.gridSize + this.gridSize / 2;
         
+        // Esplosione di stelle
         for (let i = 0; i < 20; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 1 + Math.random() * 2;
+            const angle = (Math.PI * 2 * i) / 20;
+            const speed = 2 + Math.random() * 3;
             this.particles.push({
                 x: centerX,
                 y: centerY,
@@ -677,9 +742,131 @@ class BombermanGame {
                 vy: Math.sin(angle) * speed - 1,
                 life: 1.0,
                 decay: 0.015,
-                size: 2 + Math.random() * 3,
-                color: ['#ffd700', '#ffea00', '#fff700'][Math.floor(Math.random() * 3)],
-                type: 'sparkle'
+                size: 3 + Math.random() * 4,
+                color: ['#ff6b6b', '#ffd700', '#ff8e53'][Math.floor(Math.random() * 3)],
+                type: 'star',
+                glow: true,
+                rotation: Math.random() * Math.PI * 2
+            });
+        }
+        
+        // Scintille
+        for (let i = 0; i < 15; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 3 + Math.random() * 4;
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.025,
+                size: 2 + Math.random() * 2,
+                color: '#ffd700',
+                type: 'spark',
+                glow: true
+            });
+        }
+    }
+    
+    createWallDebrisParticles(x, y) {
+        const centerX = x * this.gridSize + this.gridSize / 2;
+        const centerY = y * this.gridSize + this.gridSize / 2;
+        
+        // Pezzi di muro (quadrati marroni)
+        for (let i = 0; i < 12; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 3;
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1,
+                life: 1.0,
+                decay: 0.018,
+                size: 3 + Math.random() * 5,
+                color: ['#8B4513', '#A0522D', '#6B3410'][Math.floor(Math.random() * 3)],
+                type: 'square',
+                rotation: Math.random() * Math.PI * 2
+            });
+        }
+        
+        // Polvere
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.5 + Math.random();
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.3,
+                life: 1.0,
+                decay: 0.012,
+                size: 6 + Math.random() * 6,
+                color: 'rgba(139, 69, 19, 0.4)',
+                type: 'smoke',
+                opacity: 0.5
+            });
+        }
+    }
+    
+    createPowerupParticles(x, y) {
+        const centerX = x * this.gridSize + this.gridSize / 2;
+        const centerY = y * this.gridSize + this.gridSize / 2;
+        
+        // Stelle dorate
+        for (let i = 0; i < 12; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 2.5;
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1.5,
+                life: 1.0,
+                decay: 0.012,
+                size: 3 + Math.random() * 3,
+                color: '#ffd700',
+                type: 'star',
+                glow: true,
+                rotation: Math.random() * Math.PI * 2
+            });
+        }
+        
+        // Scintille brillanti
+        for (let i = 0; i < 15; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 3;
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1,
+                life: 1.0,
+                decay: 0.02,
+                size: 2 + Math.random() * 2,
+                color: ['#ffea00', '#fff700', '#ffffaa'][Math.floor(Math.random() * 3)],
+                type: 'spark',
+                glow: true
+            });
+        }
+        
+        // Cerchi luminosi
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.5 + Math.random();
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.5,
+                life: 1.0,
+                decay: 0.01,
+                size: 4 + Math.random() * 4,
+                color: '#ffd700',
+                type: 'circle',
+                glow: true,
+                opacity: 0.8
             });
         }
     }
@@ -695,15 +882,98 @@ class BombermanGame {
         });
     }
     
+    startFlashScreen(color = '#ffffff', intensity = 0.8, duration = 150) {
+        this.flashScreen = {
+            active: true,
+            color: color,
+            opacity: intensity,
+            duration: duration,
+            startTime: Date.now()
+        };
+    }
+    
+    startSlowMotion(factor = 0.3, duration = 300) {
+        this.slowMotion = {
+            active: true,
+            factor: factor,
+            duration: duration,
+            startTime: Date.now()
+        };
+    }
+    
+    updatePlayerInterpolation() {
+        // Interpolazione smooth del movimento
+        if (this.player.moveProgress < 1) {
+            this.player.moveProgress += 0.15; // Velocità interpolazione
+            if (this.player.moveProgress > 1) this.player.moveProgress = 1;
+            
+            // Easing function (ease-out)
+            const t = this.player.moveProgress;
+            const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+            
+            // Interpola posizione render
+            const prevX = this.player.targetX - (this.player.targetX - this.player.renderX);
+            const prevY = this.player.targetY - (this.player.targetY - this.player.renderY);
+            
+            this.player.renderX = prevX + (this.player.targetX - prevX) * eased;
+            this.player.renderY = prevY + (this.player.targetY - prevY) * eased;
+        } else {
+            // Movimento completato
+            this.player.renderX = this.player.x;
+            this.player.renderY = this.player.y;
+            this.player.targetX = this.player.x;
+            this.player.targetY = this.player.y;
+            this.player.isMoving = false;
+        }
+    }
+    
     updateParticles() {
         this.particles.forEach(p => {
+            // Movimento
             p.x += p.vx;
             p.y += p.vy;
             p.life -= p.decay;
             
-            // Gravity for sparkles
-            if (p.type === 'sparkle') {
-                p.vy += 0.1;
+            // Rotazione per particelle che ruotano
+            if (p.rotation !== undefined) {
+                p.rotation += 0.1;
+            }
+            
+            // Fisica per diversi tipi
+            switch (p.type) {
+                case 'spark':
+                case 'star':
+                    // Gravità leggera
+                    p.vy += 0.08;
+                    // Attrito
+                    p.vx *= 0.98;
+                    p.vy *= 0.98;
+                    break;
+                    
+                case 'smoke':
+                    // Sale lentamente
+                    p.vy -= 0.02;
+                    // Si espande
+                    p.size += 0.1;
+                    // Attrito forte
+                    p.vx *= 0.95;
+                    p.vy *= 0.95;
+                    break;
+                    
+                case 'square':
+                    // Gravità normale (debris)
+                    p.vy += 0.15;
+                    // Attrito
+                    p.vx *= 0.97;
+                    break;
+                    
+                case 'circle':
+                    // Gravità leggera
+                    p.vy += 0.05;
+                    // Attrito
+                    p.vx *= 0.98;
+                    p.vy *= 0.98;
+                    break;
             }
         });
         
@@ -776,11 +1046,36 @@ class BombermanGame {
         this.enemies.forEach(enemy => {
             if (enemy.alive) {
                 this.drawCharacter(enemy.x, enemy.y, enemy.name, enemy.emoji, enemy);
+            } else if (enemy.deathAnimation) {
+                // Animazione di morte (fade out + scale down)
+                const deathDuration = 500; // ms
+                const elapsed = Date.now() - enemy.deathTime;
+                if (elapsed < deathDuration) {
+                    const progress = elapsed / deathDuration;
+                    const scale = 1 - progress;
+                    const rotation = progress * Math.PI * 2;
+                    
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 1 - progress;
+                    
+                    const centerX = enemy.x * this.gridSize + this.gridSize / 2;
+                    const centerY = enemy.y * this.gridSize + this.gridSize / 2;
+                    
+                    this.ctx.translate(centerX, centerY);
+                    this.ctx.rotate(rotation);
+                    this.ctx.scale(scale, scale);
+                    this.ctx.translate(-centerX, -centerY);
+                    
+                    this.drawCharacter(enemy.x, enemy.y, enemy.name, enemy.emoji, enemy);
+                    this.ctx.restore();
+                } else {
+                    enemy.deathAnimation = false;
+                }
             }
         });
         
-        // Player con animazioni
-        this.drawCharacter(this.player.x, this.player.y, 'Dionis', this.player.emoji, this.player);
+        // Player con animazioni (usa posizione interpolata)
+        this.drawCharacter(this.player.renderX, this.player.renderY, 'Dionis', this.player.emoji, this.player);
         
         // Score animations
         this.scoreAnimations.forEach(s => {
@@ -791,10 +1086,27 @@ class BombermanGame {
         
         // HUD (non affetto da shake)
         this.drawHUD();
+        
+        // Flash screen effect (sopra tutto)
+        if (this.flashScreen.active) {
+            const elapsed = Date.now() - this.flashScreen.startTime;
+            if (elapsed < this.flashScreen.duration) {
+                const progress = elapsed / this.flashScreen.duration;
+                const opacity = this.flashScreen.opacity * (1 - progress);
+                
+                this.ctx.save();
+                this.ctx.globalAlpha = opacity;
+                this.ctx.fillStyle = this.flashScreen.color;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.restore();
+            } else {
+                this.flashScreen.active = false;
+            }
+        }
     }
     
     drawBackground() {
-        // Gradient background basato sul livello
+        // Gradient background animato basato sul livello
         const gradients = [
             ['#1a1a2e', '#16213e'], // Level 1: Dark blue
             ['#2d1b2e', '#1f1326'], // Level 2: Purple
@@ -804,11 +1116,69 @@ class BombermanGame {
         ];
         
         const colors = gradients[this.currentLevel - 1] || gradients[0];
-        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        
+        // Gradient animato con leggero shift
+        const time = Date.now() * 0.0001;
+        const offset = Math.sin(time) * 20;
+        const gradient = this.ctx.createLinearGradient(0, offset, 0, this.canvas.height + offset);
         gradient.addColorStop(0, colors[0]);
-        gradient.addColorStop(1, colors[1]);
+        gradient.addColorStop(0.5, colors[1]);
+        gradient.addColorStop(1, colors[0]);
         this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Pattern grid sottile animato
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.05 + Math.sin(time * 2) * 0.02;
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        
+        for (let x = 0; x < this.cols; x++) {
+            for (let y = 0; y < this.rows; y++) {
+                this.ctx.strokeRect(
+                    x * this.gridSize,
+                    y * this.gridSize,
+                    this.gridSize,
+                    this.gridSize
+                );
+            }
+        }
+        this.ctx.restore();
+        
+        // Ambient particles (polvere atmosferica)
+        if (!this.ambientParticles) {
+            this.ambientParticles = [];
+            for (let i = 0; i < 15; i++) {
+                this.ambientParticles.push({
+                    x: Math.random() * this.canvas.width,
+                    y: Math.random() * this.canvas.height,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                    size: 1 + Math.random() * 2,
+                    opacity: Math.random() * 0.3
+                });
+            }
+        }
+        
+        // Draw and update ambient particles
+        this.ctx.save();
+        this.ambientParticles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            
+            // Wrap around
+            if (p.x < 0) p.x = this.canvas.width;
+            if (p.x > this.canvas.width) p.x = 0;
+            if (p.y < 0) p.y = this.canvas.height;
+            if (p.y > this.canvas.height) p.y = 0;
+            
+            this.ctx.globalAlpha = p.opacity;
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        this.ctx.restore();
     }
     
     drawWall(wall) {
@@ -867,22 +1237,46 @@ class BombermanGame {
         const x = powerup.x * this.gridSize + this.gridSize / 2;
         const y = powerup.y * this.gridSize + this.gridSize / 2;
         const time = Date.now() - powerup.createdAt;
-        const pulse = Math.sin(time / 200) * 0.2 + 1;
+        
+        // Bounce effect (elastic)
+        const bounceSpeed = 0.003;
+        const bounceHeight = 8;
+        const bounce = Math.abs(Math.sin(time * bounceSpeed)) * bounceHeight;
+        
+        // Pulse effect
+        const pulse = Math.sin(time / 200) * 0.15 + 1;
+        
+        // Rotation effect
+        const rotation = Math.sin(time * 0.002) * 0.2;
+        
+        this.ctx.save();
         
         // Glow effect
-        this.ctx.save();
-        this.ctx.shadowBlur = 15;
+        this.ctx.shadowBlur = 20;
         this.ctx.shadowColor = powerup.type === 'bombs' ? '#ff6b00' : '#ff0000';
         
+        // Translate and rotate
+        this.ctx.translate(x, y - bounce);
+        this.ctx.rotate(rotation);
+        
         // Draw icon with pulse
-        this.ctx.font = `${30 * pulse}px Arial`;
+        this.ctx.font = `${32 * pulse}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(
             powerup.type === 'bombs' ? '💣' : '🔥',
-            x, y
+            0, 0
         );
         
+        this.ctx.restore();
+        
+        // Draw shadow under power-up
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.3 * (1 - bounce / bounceHeight);
+        this.ctx.fillStyle = '#000';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x, y + 5, 12, 4, 0, 0, Math.PI * 2);
+        this.ctx.fill();
         this.ctx.restore();
     }
     
@@ -892,23 +1286,44 @@ class BombermanGame {
         const timeLeft = bomb.timer - (Date.now() - bomb.placedAt);
         const urgency = 1 - (timeLeft / bomb.timer);
         
-        // Pulsing animation
-        const pulse = Math.sin(Date.now() / (100 - urgency * 80)) * 0.15 + 1;
+        // Squash & stretch animation (più veloce quando sta per esplodere)
+        const squashSpeed = 100 - urgency * 80;
+        const squashAmount = 0.15 + urgency * 0.1;
+        const squash = Math.sin(Date.now() / squashSpeed) * squashAmount;
+        
+        // Scale X e Y per squash & stretch
+        const scaleX = 1 + squash;
+        const scaleY = 1 - squash * 0.7;
+        
+        this.ctx.save();
         
         // Red glow when about to explode
         if (urgency > 0.7) {
-            this.ctx.save();
-            this.ctx.shadowBlur = 20 * urgency;
+            this.ctx.shadowBlur = 25 * urgency;
             this.ctx.shadowColor = '#ff0000';
         }
         
+        // Apply squash & stretch
+        this.ctx.translate(x, y);
+        this.ctx.scale(scaleX, scaleY);
+        
         // Draw bomb
-        this.ctx.font = `${30 * pulse}px Arial`;
+        this.ctx.font = `${32}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText('💣', x, y);
+        this.ctx.fillText('💣', 0, 0);
         
-        if (urgency > 0.7) {
+        this.ctx.restore();
+        
+        // Draw fuse spark when about to explode
+        if (urgency > 0.5) {
+            this.ctx.save();
+            this.ctx.globalAlpha = urgency;
+            this.ctx.fillStyle = '#ff6b00';
+            const sparkSize = 2 + Math.random() * 3;
+            this.ctx.beginPath();
+            this.ctx.arc(x - 8, y - 12, sparkSize, 0, Math.PI * 2);
+            this.ctx.fill();
             this.ctx.restore();
         }
     }
@@ -948,15 +1363,91 @@ class BombermanGame {
     }
     
     drawParticle(particle) {
-        this.ctx.fillStyle = particle.color;
-        this.ctx.globalAlpha = particle.life;
-        this.ctx.fillRect(
-            particle.x - particle.size / 2,
-            particle.y - particle.size / 2,
-            particle.size,
-            particle.size
-        );
-        this.ctx.globalAlpha = 1;
+        this.ctx.save();
+        this.ctx.globalAlpha = particle.life * (particle.opacity || 1);
+        
+        // Applica rotazione se presente
+        if (particle.rotation !== undefined) {
+            this.ctx.translate(particle.x, particle.y);
+            this.ctx.rotate(particle.rotation);
+            this.ctx.translate(-particle.x, -particle.y);
+        }
+        
+        // Disegna in base al tipo
+        switch (particle.type) {
+            case 'circle':
+                // Particella circolare con glow
+                if (particle.glow) {
+                    this.ctx.shadowBlur = 10;
+                    this.ctx.shadowColor = particle.color;
+                }
+                this.ctx.fillStyle = particle.color;
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size / 2, 0, Math.PI * 2);
+                this.ctx.fill();
+                break;
+                
+            case 'spark':
+                // Scintilla allungata
+                this.ctx.strokeStyle = particle.color;
+                this.ctx.lineWidth = particle.size;
+                this.ctx.lineCap = 'round';
+                this.ctx.beginPath();
+                this.ctx.moveTo(particle.x, particle.y);
+                this.ctx.lineTo(
+                    particle.x - particle.vx * 3,
+                    particle.y - particle.vy * 3
+                );
+                this.ctx.stroke();
+                break;
+                
+            case 'star':
+                // Stella a 4 punte
+                this.ctx.fillStyle = particle.color;
+                const points = 4;
+                const outerRadius = particle.size;
+                const innerRadius = particle.size / 2;
+                this.ctx.beginPath();
+                for (let i = 0; i < points * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (Math.PI * i) / points;
+                    const px = particle.x + Math.cos(angle) * radius;
+                    const py = particle.y + Math.sin(angle) * radius;
+                    if (i === 0) this.ctx.moveTo(px, py);
+                    else this.ctx.lineTo(px, py);
+                }
+                this.ctx.closePath();
+                this.ctx.fill();
+                break;
+                
+            case 'smoke':
+                // Fumo sfumato
+                const gradient = this.ctx.createRadialGradient(
+                    particle.x, particle.y, 0,
+                    particle.x, particle.y, particle.size
+                );
+                gradient.addColorStop(0, particle.color);
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                this.ctx.fillStyle = gradient;
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                break;
+                
+            case 'square':
+            default:
+                // Quadrato (default)
+                this.ctx.fillStyle = particle.color;
+                this.ctx.fillRect(
+                    particle.x - particle.size / 2,
+                    particle.y - particle.size / 2,
+                    particle.size,
+                    particle.size
+                );
+                break;
+        }
+        
+        this.ctx.restore();
     }
     
     drawScoreAnimation(scoreAnim) {
@@ -1008,28 +1499,40 @@ class BombermanGame {
             
             this.ctx.restore();
             
-            // Bordo animato per player (Inter colors)
+            // Bordo animato per player (Inter colors) con glow dinamico
             if (name === 'Dionis') {
                 const pulse = Math.sin(Date.now() / 300) * 0.5 + 0.5;
-                this.ctx.strokeStyle = `rgba(0, 150, 255, ${0.7 + pulse * 0.3})`;
+                
+                // Outer glow (più grande)
+                this.ctx.save();
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = `rgba(0, 150, 255, ${0.6 + pulse * 0.4})`;
+                this.ctx.strokeStyle = `rgba(0, 150, 255, ${0.2 + pulse * 0.3})`;
+                this.ctx.lineWidth = 6;
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY + offsetY, this.gridSize / 2 + 2, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.restore();
+                
+                // Main border
+                this.ctx.strokeStyle = `rgba(0, 150, 255, ${0.8 + pulse * 0.2})`;
                 this.ctx.lineWidth = 3;
                 this.ctx.beginPath();
                 this.ctx.arc(centerX, centerY + offsetY, this.gridSize / 2 - 2, 0, Math.PI * 2);
-                this.ctx.stroke();
-                
-                // Extra glow
-                this.ctx.strokeStyle = `rgba(0, 150, 255, ${0.3 + pulse * 0.2})`;
-                this.ctx.lineWidth = 5;
-                this.ctx.beginPath();
-                this.ctx.arc(centerX, centerY + offsetY, this.gridSize / 2, 0, Math.PI * 2);
                 this.ctx.stroke();
             } else {
-                // Enemy border
-                this.ctx.strokeStyle = '#ff6b6b';
+                // Enemy border con glow rosso
+                const pulse = Math.sin(Date.now() / 400) * 0.3 + 0.7;
+                
+                this.ctx.save();
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = `rgba(255, 107, 107, ${pulse})`;
+                this.ctx.strokeStyle = `rgba(255, 107, 107, ${pulse})`;
                 this.ctx.lineWidth = 3;
                 this.ctx.beginPath();
                 this.ctx.arc(centerX, centerY + offsetY, this.gridSize / 2 - 2, 0, Math.PI * 2);
                 this.ctx.stroke();
+                this.ctx.restore();
             }
         } else {
             // Fallback emoji with animation
@@ -1064,92 +1567,92 @@ class BombermanGame {
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
         
-        // === TOP BAR - Compatto e moderno ===
-        this.drawRoundedRect(10, 10, canvasWidth - 20, 50, 12, 'rgba(15, 52, 96, 0.85)');
+        // === TOP BAR - Ultra compatto e trasparente ===
+        this.drawRoundedRect(5, 5, canvasWidth - 10, 35, 8, 'rgba(15, 52, 96, 0.6)');
         
-        // Livello (sinistra)
+        // Livello (sinistra) - più piccolo
         this.ctx.fillStyle = '#4ecdc4';
-        this.ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+        this.ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
         this.ctx.textAlign = 'left';
-        this.ctx.fillText(`LV ${this.currentLevel}`, 25, 35);
+        this.ctx.fillText(`LV${this.currentLevel}`, 12, 23);
         
-        // Progress bar livello
-        const progressX = 70;
-        const progressWidth = 80;
-        const progressHeight = 6;
-        this.drawRoundedRect(progressX, 28, progressWidth, progressHeight, 3, 'rgba(255, 255, 255, 0.2)');
-        this.drawRoundedRect(progressX, 28, (progressWidth * this.currentLevel) / 5, progressHeight, 3, '#4ecdc4');
+        // Progress bar livello - più piccolo
+        const progressX = 45;
+        const progressWidth = 60;
+        const progressHeight = 4;
+        this.drawRoundedRect(progressX, 19, progressWidth, progressHeight, 2, 'rgba(255, 255, 255, 0.2)');
+        this.drawRoundedRect(progressX, 19, (progressWidth * this.currentLevel) / 5, progressHeight, 2, '#4ecdc4');
         
-        // Vite (centro)
-        const livesX = progressX + progressWidth + 30;
-        this.ctx.font = '20px Arial';
+        // Vite (centro) - più piccole
+        const livesX = progressX + progressWidth + 15;
+        this.ctx.font = '16px Arial';
         for (let i = 0; i < this.player.lives; i++) {
-            this.ctx.fillText('❤️', livesX + i * 28, 38);
+            this.ctx.fillText('❤️', livesX + i * 20, 25);
         }
         
-        // Score (destra)
+        // Score (destra) - più piccolo
         this.ctx.fillStyle = '#ffd700';
-        this.ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+        this.ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
         this.ctx.textAlign = 'right';
-        this.ctx.fillText(`${this.score}`, canvasWidth - 25, 35);
+        this.ctx.fillText(`${this.score}`, canvasWidth - 12, 23);
         
-        // === BOSS HEALTH BAR (se presente) ===
+        // === BOSS HEALTH BAR (se presente) - Ultra compatto ===
         const boss = this.enemies.find(e => e.isBoss && e.alive);
         if (boss && boss.health) {
-            const bossBarY = 70;
-            const bossBarWidth = canvasWidth - 20;
+            const bossBarY = 45;
+            const bossBarWidth = canvasWidth - 10;
             
-            // Background
-            this.drawRoundedRect(10, bossBarY, bossBarWidth, 45, 12, 'rgba(255, 107, 107, 0.15)');
+            // Background - più trasparente e piccolo
+            this.drawRoundedRect(5, bossBarY, bossBarWidth, 30, 8, 'rgba(255, 107, 107, 0.1)');
             
-            // Boss portrait (circolare)
+            // Boss portrait (circolare) - più piccolo
             const img = this.characterImages[boss.name];
             if (img && img.complete && img.naturalWidth > 0) {
                 this.ctx.save();
-                this.ctx.shadowBlur = 8;
+                this.ctx.shadowBlur = 5;
                 this.ctx.shadowColor = '#ff6b6b';
                 this.ctx.beginPath();
-                this.ctx.arc(35, bossBarY + 22, 18, 0, Math.PI * 2);
+                this.ctx.arc(20, bossBarY + 15, 12, 0, Math.PI * 2);
                 this.ctx.closePath();
                 this.ctx.clip();
-                this.ctx.drawImage(img, 17, bossBarY + 4, 36, 36);
+                this.ctx.drawImage(img, 8, bossBarY + 3, 24, 24);
                 this.ctx.restore();
                 
                 // Bordo portrait
                 this.ctx.strokeStyle = '#ff6b6b';
-                this.ctx.lineWidth = 3;
+                this.ctx.lineWidth = 2;
                 this.ctx.beginPath();
-                this.ctx.arc(35, bossBarY + 22, 18, 0, Math.PI * 2);
+                this.ctx.arc(20, bossBarY + 15, 12, 0, Math.PI * 2);
                 this.ctx.stroke();
             }
             
-            // Nome boss
+            // Nome boss - più piccolo
             this.ctx.fillStyle = 'white';
-            this.ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
+            this.ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
             this.ctx.textAlign = 'left';
-            this.ctx.fillText(boss.name, 65, bossBarY + 18);
+            this.ctx.fillText(boss.name, 38, bossBarY + 13);
             
-            // Health bar
+            // Health bar - più piccolo
             const maxHealth = boss.isBoss ? 5 : 3;
-            const healthBarWidth = bossBarWidth - 80;
-            const healthBarHeight = 8;
-            const healthBarX = 65;
-            const healthBarY = bossBarY + 28;
+            const healthBarWidth = bossBarWidth - 50;
+            const healthBarHeight = 6;
+            const healthBarX = 38;
+            const healthBarY = bossBarY + 19;
             
             // Background health bar
-            this.drawRoundedRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight, 4, 'rgba(255, 255, 255, 0.2)');
+            this.drawRoundedRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight, 3, 'rgba(255, 255, 255, 0.2)');
             
             // Current health
             const currentHealthWidth = (healthBarWidth * boss.health) / maxHealth;
             if (currentHealthWidth > 0) {
-                this.drawRoundedRect(healthBarX, healthBarY, currentHealthWidth, healthBarHeight, 4, '#ff6b6b');
+                this.drawRoundedRect(healthBarX, healthBarY, currentHealthWidth, healthBarHeight, 3, '#ff6b6b');
             }
             
-            // Health text
+            // Health text - più piccolo
             this.ctx.fillStyle = 'white';
-            this.ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+            this.ctx.font = 'bold 9px "Segoe UI", Arial, sans-serif';
             this.ctx.textAlign = 'right';
-            this.ctx.fillText(`${boss.health}/${maxHealth} HP`, healthBarX + healthBarWidth, healthBarY + 7);
+            this.ctx.fillText(`${boss.health}/${maxHealth}`, healthBarX + healthBarWidth, healthBarY + 5);
         }
         
         // === POWER-UPS BAR (bottom) ===
@@ -1186,6 +1689,7 @@ class BombermanGame {
         const currentTime = Date.now();
         
         this.handleMovement(currentTime);
+        this.updatePlayerInterpolation(); // Smooth movement
         this.moveEnemies(currentTime);
         this.updateBombs(currentTime);
         this.updateExplosions(currentTime);

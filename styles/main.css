@@ -675,10 +675,10 @@ body {
     transform: scale(0.9);
 }
 
-/* Hide touch controls on desktop, show on mobile */
+/* Hide touch controls on desktop */
 @media (min-width: 1024px) {
-    #virtual-joystick,
-    #bomb-button {
+    #phase2-screen.active #virtual-joystick,
+    #phase2-screen.active #bomb-button {
         display: none !important;
     }
 }

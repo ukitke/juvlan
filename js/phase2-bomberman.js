@@ -206,6 +206,8 @@ class BombermanGame {
     }
     
     setupTouchControls() {
+        console.log('🎮 Creando controlli touch...');
+        
         // Crea joystick virtuale
         const joystick = document.createElement('div');
         joystick.id = 'virtual-joystick';
@@ -215,12 +217,14 @@ class BombermanGame {
             </div>
         `;
         document.body.appendChild(joystick);
+        console.log('✅ Joystick creato:', joystick);
         
         // Crea pulsante bomba
         const bombBtn = document.createElement('div');
         bombBtn.id = 'bomb-button';
         bombBtn.innerHTML = '💣';
         document.body.appendChild(bombBtn);
+        console.log('✅ Pulsante bomba creato:', bombBtn);
         
         // Joystick touch events
         const base = joystick.querySelector('.joystick-base');
@@ -810,32 +814,52 @@ class BombermanGame {
     drawWall(wall) {
         const x = wall.x * this.gridSize;
         const y = wall.y * this.gridSize;
+        const size = this.gridSize;
+        const padding = 2;
+        const radius = 6;
         
         if (wall.destructible) {
-            // Destructible wall - brown with texture
-            const gradient = this.ctx.createLinearGradient(x, y, x + this.gridSize, y + this.gridSize);
-            gradient.addColorStop(0, '#8B4513');
-            gradient.addColorStop(0.5, '#A0522D');
+            // Destructible wall - modern brown crate
+            const gradient = this.ctx.createLinearGradient(x, y, x + size, y + size);
+            gradient.addColorStop(0, '#A0522D');
+            gradient.addColorStop(0.5, '#8B4513');
             gradient.addColorStop(1, '#6B3410');
-            this.ctx.fillStyle = gradient;
-            this.ctx.fillRect(x, y, this.gridSize, this.gridSize);
             
-            // Border
-            this.ctx.strokeStyle = '#5a2a0a';
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
-        } else {
-            // Indestructible wall - dark gray with metallic look
-            const gradient = this.ctx.createLinearGradient(x, y, x + this.gridSize, y + this.gridSize);
-            gradient.addColorStop(0, '#5a5a5a');
-            gradient.addColorStop(0.5, '#4a4a4a');
-            gradient.addColorStop(1, '#3a3a3a');
-            this.ctx.fillStyle = gradient;
-            this.ctx.fillRect(x, y, this.gridSize, this.gridSize);
+            this.ctx.save();
+            this.ctx.shadowBlur = 4;
+            this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            this.drawRoundedRect(x + padding, y + padding, size - padding * 2, size - padding * 2, radius, gradient);
+            this.ctx.restore();
             
             // Highlight
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            this.ctx.fillRect(x + 2, y + 2, this.gridSize / 3, this.gridSize / 3);
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            this.ctx.fillRect(x + 6, y + 6, size / 3, 3);
+            
+            // Border accent
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x + radius + padding, y + padding);
+            this.ctx.lineTo(x + size - radius - padding, y + padding);
+            this.ctx.stroke();
+        } else {
+            // Indestructible wall - sleek metallic
+            const gradient = this.ctx.createLinearGradient(x, y, x + size, y + size);
+            gradient.addColorStop(0, '#4a5568');
+            gradient.addColorStop(0.5, '#2d3748');
+            gradient.addColorStop(1, '#1a202c');
+            
+            this.ctx.save();
+            this.ctx.shadowBlur = 6;
+            this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            this.drawRoundedRect(x + padding, y + padding, size - padding * 2, size - padding * 2, radius, gradient);
+            this.ctx.restore();
+            
+            // Metallic highlight
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            this.ctx.beginPath();
+            this.ctx.arc(x + size / 4, y + size / 4, size / 6, 0, Math.PI * 2);
+            this.ctx.fill();
         }
     }
     
@@ -1020,102 +1044,130 @@ class BombermanGame {
         }
     }
     
+    drawRoundedRect(x, y, width, height, radius, fillStyle) {
+        this.ctx.fillStyle = fillStyle;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + radius, y);
+        this.ctx.lineTo(x + width - radius, y);
+        this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.ctx.lineTo(x + width, y + height - radius);
+        this.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.ctx.lineTo(x + radius, y + height);
+        this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.ctx.lineTo(x, y + radius);
+        this.ctx.quadraticCurveTo(x, y, x + radius, y);
+        this.ctx.closePath();
+        this.ctx.fill();
+    }
+    
     drawHUD() {
-        // HUD Background panel
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(0, 0, 200, 150);
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
         
-        // Level indicator with progress bar
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = 'bold 18px Arial';
+        // === TOP BAR - Compatto e moderno ===
+        this.drawRoundedRect(10, 10, canvasWidth - 20, 50, 12, 'rgba(15, 52, 96, 0.85)');
+        
+        // Livello (sinistra)
+        this.ctx.fillStyle = '#4ecdc4';
+        this.ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
         this.ctx.textAlign = 'left';
-        this.ctx.fillText(`LIVELLO ${this.currentLevel}/5`, 10, 25);
+        this.ctx.fillText(`LV ${this.currentLevel}`, 25, 35);
         
-        // Level progress bar
-        const progressWidth = 180;
-        const progressHeight = 8;
-        this.ctx.fillStyle = '#333';
-        this.ctx.fillRect(10, 30, progressWidth, progressHeight);
-        this.ctx.fillStyle = '#0096ff';
-        this.ctx.fillRect(10, 30, (progressWidth * this.currentLevel) / 5, progressHeight);
+        // Progress bar livello
+        const progressX = 70;
+        const progressWidth = 80;
+        const progressHeight = 6;
+        this.drawRoundedRect(progressX, 28, progressWidth, progressHeight, 3, 'rgba(255, 255, 255, 0.2)');
+        this.drawRoundedRect(progressX, 28, (progressWidth * this.currentLevel) / 5, progressHeight, 3, '#4ecdc4');
         
-        // Lives with hearts
-        this.ctx.fillStyle = '#ff6b6b';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText('VITE:', 10, 55);
+        // Vite (centro)
+        const livesX = progressX + progressWidth + 30;
+        this.ctx.font = '20px Arial';
         for (let i = 0; i < this.player.lives; i++) {
-            this.ctx.fillText('❤️', 60 + i * 25, 55);
+            this.ctx.fillText('❤️', livesX + i * 28, 38);
         }
         
-        // Score with animation
+        // Score (destra)
         this.ctx.fillStyle = '#ffd700';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText(`SCORE: ${this.score}`, 10, 75);
+        this.ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText(`${this.score}`, canvasWidth - 25, 35);
         
-        // Enemies remaining
-        const aliveEnemies = this.enemies.filter(e => e.alive).length;
-        const totalEnemies = this.enemies.length;
-        this.ctx.fillStyle = aliveEnemies > 0 ? '#ff6b6b' : '#4ecdc4';
-        this.ctx.fillText(`Nemici: ${aliveEnemies}/${totalEnemies}`, 10, 95);
-        
-        // Boss health bar with portrait
+        // === BOSS HEALTH BAR (se presente) ===
         const boss = this.enemies.find(e => e.isBoss && e.alive);
         if (boss && boss.health) {
-            // Boss panel
-            this.ctx.fillStyle = 'rgba(255, 107, 107, 0.2)';
-            this.ctx.fillRect(5, 105, 190, 40);
+            const bossBarY = 70;
+            const bossBarWidth = canvasWidth - 20;
             
-            // Ritratto boss
+            // Background
+            this.drawRoundedRect(10, bossBarY, bossBarWidth, 45, 12, 'rgba(255, 107, 107, 0.15)');
+            
+            // Boss portrait (circolare)
             const img = this.characterImages[boss.name];
             if (img && img.complete && img.naturalWidth > 0) {
                 this.ctx.save();
-                this.ctx.shadowBlur = 5;
+                this.ctx.shadowBlur = 8;
                 this.ctx.shadowColor = '#ff6b6b';
                 this.ctx.beginPath();
-                this.ctx.arc(25, 125, 15, 0, Math.PI * 2);
+                this.ctx.arc(35, bossBarY + 22, 18, 0, Math.PI * 2);
                 this.ctx.closePath();
                 this.ctx.clip();
-                this.ctx.drawImage(img, 10, 110, 30, 30);
+                this.ctx.drawImage(img, 17, bossBarY + 4, 36, 36);
                 this.ctx.restore();
                 
-                // Bordo
+                // Bordo portrait
                 this.ctx.strokeStyle = '#ff6b6b';
-                this.ctx.lineWidth = 2;
+                this.ctx.lineWidth = 3;
                 this.ctx.beginPath();
-                this.ctx.arc(25, 125, 15, 0, Math.PI * 2);
+                this.ctx.arc(35, bossBarY + 22, 18, 0, Math.PI * 2);
                 this.ctx.stroke();
             }
             
             // Nome boss
             this.ctx.fillStyle = 'white';
-            this.ctx.font = 'bold 14px Arial';
-            this.ctx.fillText(boss.name, 50, 120);
+            this.ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(boss.name, 65, bossBarY + 18);
             
             // Health bar
             const maxHealth = boss.isBoss ? 5 : 3;
-            const healthBarWidth = 130;
-            const healthBarHeight = 10;
-            this.ctx.fillStyle = '#333';
-            this.ctx.fillRect(50, 127, healthBarWidth, healthBarHeight);
-            this.ctx.fillStyle = '#ff6b6b';
-            this.ctx.fillRect(50, 127, (healthBarWidth * boss.health) / maxHealth, healthBarHeight);
+            const healthBarWidth = bossBarWidth - 80;
+            const healthBarHeight = 8;
+            const healthBarX = 65;
+            const healthBarY = bossBarY + 28;
+            
+            // Background health bar
+            this.drawRoundedRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight, 4, 'rgba(255, 255, 255, 0.2)');
+            
+            // Current health
+            const currentHealthWidth = (healthBarWidth * boss.health) / maxHealth;
+            if (currentHealthWidth > 0) {
+                this.drawRoundedRect(healthBarX, healthBarY, currentHealthWidth, healthBarHeight, 4, '#ff6b6b');
+            }
             
             // Health text
             this.ctx.fillStyle = 'white';
-            this.ctx.font = '10px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(`${boss.health}/${maxHealth}`, 115, 135);
-            this.ctx.textAlign = 'left';
+            this.ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+            this.ctx.textAlign = 'right';
+            this.ctx.fillText(`${boss.health}/${maxHealth} HP`, healthBarX + healthBarWidth, healthBarY + 7);
         }
         
-        // Power-ups panel (bottom left)
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(0, this.canvas.height - 40, 150, 40);
+        // === POWER-UPS BAR (bottom) ===
+        const powerUpBarY = canvasHeight - 50;
+        this.drawRoundedRect(10, powerUpBarY, 160, 40, 12, 'rgba(15, 52, 96, 0.85)');
         
-        this.ctx.fillStyle = '#4ecdc4';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText(`💣 x${this.player.maxBombs}`, 10, this.canvas.height - 20);
-        this.ctx.fillText(`🔥 x${this.player.bombPower}`, 80, this.canvas.height - 20);
+        this.ctx.font = '22px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText('💣', 20, powerUpBarY + 28);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+        this.ctx.fillText(`x${this.player.maxBombs}`, 48, powerUpBarY + 27);
+        
+        this.ctx.font = '22px Arial';
+        this.ctx.fillText('🔥', 95, powerUpBarY + 28);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+        this.ctx.fillText(`x${this.player.bombPower}`, 123, powerUpBarY + 27);
     }
     
     gameLoop() {

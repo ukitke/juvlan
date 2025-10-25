@@ -612,7 +612,13 @@ body {
 }
 
 #phase2-screen.active #virtual-joystick {
-    display: block;
+    display: block !important;
+}
+
+@media (max-width: 1023px) {
+    #phase2-screen.active #virtual-joystick {
+        display: block !important;
+    }
 }
 
 .joystick-base {
@@ -656,11 +662,25 @@ body {
 }
 
 #phase2-screen.active #bomb-button {
-    display: flex;
+    display: flex !important;
+}
+
+@media (max-width: 1023px) {
+    #phase2-screen.active #bomb-button {
+        display: flex !important;
+    }
 }
 
 #bomb-button:active {
     transform: scale(0.9);
+}
+
+/* Hide touch controls on desktop, show on mobile */
+@media (min-width: 1024px) {
+    #virtual-joystick,
+    #bomb-button {
+        display: none !important;
+    }
 }
 
 /* Accessibility */

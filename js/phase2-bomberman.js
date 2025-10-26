@@ -5,12 +5,9 @@ class BombermanGame {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         
-        // Game settings
-        this.gridSize = 40;
-        this.cols = 15;
-        this.rows = 13;
-        this.canvas.width = this.cols * this.gridSize;
-        this.canvas.height = this.rows * this.gridSize;
+        // Game settings - Responsive canvas
+        this.calculateOptimalCanvasSize();
+        this.setupResizeHandler();
         
         // Character images
         this.characterImages = {};
@@ -42,7 +39,9 @@ class BombermanGame {
             animationTime: 0,
             direction: 'down',
             isMoving: false,
-            moveProgress: 1 // 0-1 per interpolazione smooth
+            moveProgress: 1, // 0-1 per interpolazione smooth
+            invincible: false, // Invincibilità dopo perdita vita
+            invincibleUntil: 0 // Timestamp fine invincibilità
         };
         
         // Enemies (Juvlanisti) - inizializzati per livello
@@ -65,6 +64,16 @@ class BombermanGame {
         this.score = 0;
         this.scoreAnimations = [];
         
+        // Combo system
+        this.combo = 0;
+        this.comboTimer = null;
+        this.comboTimeout = 3000; // 3 secondi per mantenere combo
+        this.lastKillTime = 0;
+        
+        // Trail effect
+        this.playerTrail = [];
+        this.lastTrailTime = 0;
+        
         // Controls
         this.keys = {};
         this.touchControls = {
@@ -73,6 +82,45 @@ class BombermanGame {
         };
         
         this.init();
+    }
+    
+    calculateOptimalCanvasSize() {
+        // Calcola dimensioni ottimali basate sullo schermo disponibile
+        const maxWidth = window.innerWidth - 40; // Margini
+        const maxHeight = window.innerHeight - 200; // Spazio per UI e controlli
+        
+        // Griglia fissa
+        this.cols = 15;
+        this.rows = 13;
+        
+        // Calcola gridSize ottimale mantenendo aspect ratio
+        const gridSizeByWidth = Math.floor(maxWidth / this.cols);
+        const gridSizeByHeight = Math.floor(maxHeight / this.rows);
+        
+        // Usa il più piccolo per garantire che tutto sia visibile
+        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 50); // Max 50px per cella
+        this.gridSize = Math.max(this.gridSize, 25); // Min 25px per cella
+        
+        // Imposta dimensioni canvas
+        this.canvas.width = this.cols * this.gridSize;
+        this.canvas.height = this.rows * this.gridSize;
+        
+        console.log(`Canvas size: ${this.canvas.width}x${this.canvas.height}, gridSize: ${this.gridSize}`);
+    }
+    
+    setupResizeHandler() {
+        // Gestisci resize della finestra
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.calculateOptimalCanvasSize();
+                // Ridisegna il gioco con le nuove dimensioni
+                if (this.ctx) {
+                    this.render();
+                }
+            }, 250);
+        });
     }
     
     loadCharacterImages() {
@@ -259,18 +307,18 @@ class BombermanGame {
             const deltaY = touch.clientY - joystickStartY;
             
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            const maxDistance = 40;
+            const maxDistance = 60; // Aumentato per joystick più grande
             
             if (distance > maxDistance) {
                 const angle = Math.atan2(deltaY, deltaX);
-                stick.style.left = `${Math.cos(angle) * maxDistance + 50}px`;
-                stick.style.top = `${Math.sin(angle) * maxDistance + 50}px`;
+                stick.style.left = `${Math.cos(angle) * maxDistance + 75}px`;
+                stick.style.top = `${Math.sin(angle) * maxDistance + 75}px`;
                 
                 this.touchControls.joystick.x = Math.cos(angle);
                 this.touchControls.joystick.y = Math.sin(angle);
             } else {
-                stick.style.left = `${deltaX + 50}px`;
-                stick.style.top = `${deltaY + 50}px`;
+                stick.style.left = `${deltaX + 75}px`;
+                stick.style.top = `${deltaY + 75}px`;
                 
                 this.touchControls.joystick.x = deltaX / maxDistance;
                 this.touchControls.joystick.y = deltaY / maxDistance;
@@ -281,8 +329,8 @@ class BombermanGame {
         
         base.addEventListener('touchend', () => {
             joystickActive = false;
-            stick.style.left = '50px';
-            stick.style.top = '50px';
+            stick.style.left = '75px'; // Centro aggiornato per joystick 150px
+            stick.style.top = '75px';
             this.touchControls.joystick.active = false;
             this.touchControls.joystick.x = 0;
             this.touchControls.joystick.y = 0;
@@ -326,7 +374,7 @@ class BombermanGame {
         
         // Touch controls (joystick)
         if (this.touchControls.joystick.active) {
-            const threshold = 0.5;
+            const threshold = 0.2; // Ridotto per maggiore fluidità
             if (Math.abs(this.touchControls.joystick.x) > Math.abs(this.touchControls.joystick.y)) {
                 if (this.touchControls.joystick.x > threshold) {
                     newX++;
@@ -351,7 +399,17 @@ class BombermanGame {
         }
         
         if (newX !== this.player.x || newY !== this.player.y) {
-            if (this.canMoveTo(newX, newY)) {
+            // Check se c'è una bomba nella posizione target
+            const bombAtTarget = this.bombs.find(b => b.x === newX && b.y === newY && !b.velocity);
+            
+            if (bombAtTarget) {
+                // Kick bomb mechanic!
+                const direction = {
+                    dx: newX - this.player.x,
+                    dy: newY - this.player.y
+                };
+                this.kickBomb(bombAtTarget, direction);
+            } else if (this.canMoveTo(newX, newY)) {
                 // Imposta target per interpolazione smooth
                 this.player.targetX = newX;
                 this.player.targetY = newY;
@@ -360,6 +418,10 @@ class BombermanGame {
                 this.player.y = newY;
                 this.player.isMoving = true;
                 this.lastMoveTime = currentTime;
+                
+                // Create trail and dust particles
+                this.createPlayerTrail();
+                this.createDustParticles(this.player.x, this.player.y);
                 
                 // Raccogli power-up
                 this.checkPowerupCollection();
@@ -378,12 +440,12 @@ class BombermanGame {
         }
     }
     
-    canMoveTo(x, y) {
+    canMoveTo(x, y, checkBombs = true) {
         // Controlla muri
         if (this.walls.some(w => w.x === x && w.y === y)) return false;
         
-        // Controlla bombe
-        if (this.bombs.some(b => b.x === x && b.y === y)) return false;
+        // Controlla bombe (opzionale per kick mechanic)
+        if (checkBombs && this.bombs.some(b => b.x === x && b.y === y && !b.velocity)) return false;
         
         return true;
     }
@@ -402,11 +464,47 @@ class BombermanGame {
             placedAt: Date.now(),
             power: this.player.bombPower,
             exploded: false,
-            animationFrame: 0
+            animationFrame: 0,
+            velocity: null // Per bomb kick mechanic
         });
         
         // Suono piazzamento bomba
         this.audioManager.playBombPlace();
+    }
+    
+    kickBomb(bomb, direction) {
+        // Imposta velocità bomba nella direzione del movimento
+        bomb.velocity = {
+            dx: direction.dx,
+            dy: direction.dy,
+            speed: 150 // ms per cella
+        };
+        bomb.lastMoveTime = Date.now();
+        console.log('💥 Bomba calciata!', direction);
+    }
+    
+    updateMovingBombs(currentTime) {
+        this.bombs.forEach(bomb => {
+            if (bomb.velocity && !bomb.exploded) {
+                const elapsed = currentTime - bomb.lastMoveTime;
+                
+                if (elapsed >= bomb.velocity.speed) {
+                    const newX = bomb.x + bomb.velocity.dx;
+                    const newY = bomb.y + bomb.velocity.dy;
+                    
+                    // Check se può muoversi
+                    if (this.canMoveTo(newX, newY, false)) {
+                        bomb.x = newX;
+                        bomb.y = newY;
+                        bomb.lastMoveTime = currentTime;
+                    } else {
+                        // Ferma bomba su ostacolo
+                        bomb.velocity = null;
+                        console.log('💥 Bomba fermata su ostacolo');
+                    }
+                }
+            }
+        });
     }
     
     updateBombs(currentTime) {
@@ -425,14 +523,18 @@ class BombermanGame {
         // Suono esplosione
         this.audioManager.playExplosion();
         
-        // Screen shake e flash per esplosione
+        // Count active explosions for enhanced shake
+        const activeExplosions = this.explosions.length;
+        const shakeIntensity = Math.min(5 + activeExplosions * 2, 15); // Max 15
+        
+        // Screen shake e flash per esplosione (più intenso con multiple esplosioni)
         this.screenShake = {
             active: true,
-            intensity: 5,
-            duration: 300,
+            intensity: shakeIntensity,
+            duration: 300 + activeExplosions * 50,
             startTime: Date.now()
         };
-        this.startFlashScreen('#ffffff', 0.3, 100);
+        this.startFlashScreen('#ffffff', 0.3 + activeExplosions * 0.1, 100);
         
         const explosionCells = [{ x: bomb.x, y: bomb.y }];
         
@@ -464,7 +566,15 @@ class BombermanGame {
                     
                     // Chance di power-up
                     if (Math.random() < 0.3) {
-                        const type = Math.random() < 0.5 ? 'bombs' : 'power';
+                        const rand = Math.random();
+                        let type;
+                        if (rand < 0.33) {
+                            type = 'bombs';
+                        } else if (rand < 0.66) {
+                            type = 'power';
+                        } else {
+                            type = 'speed';
+                        }
                         this.powerups.push({ x, y, type, createdAt: Date.now() });
                     }
                     break;
@@ -496,14 +606,33 @@ class BombermanGame {
             this.enemies.forEach(enemy => {
                 if (enemy.alive && cell.x === enemy.x && cell.y === enemy.y) {
                     this.createHitParticles(cell.x, cell.y, '#ffd700');
+                    
+                    // Combo system: check se uccisione è entro timeout
+                    const now = Date.now();
+                    if (now - this.lastKillTime < this.comboTimeout) {
+                        this.combo++;
+                    } else {
+                        this.combo = 1;
+                    }
+                    this.lastKillTime = now;
+                    
+                    // Reset combo timer
+                    if (this.comboTimer) clearTimeout(this.comboTimer);
+                    this.comboTimer = setTimeout(() => {
+                        this.combo = 0;
+                    }, this.comboTimeout);
+                    
                     if (enemy.isBoss && enemy.health) {
                         enemy.health--;
                         if (enemy.health <= 0) {
                             enemy.alive = false;
                             enemy.deathTime = Date.now();
                             enemy.deathAnimation = true;
-                            this.score += 500;
-                            this.createScoreAnimation(cell.x, cell.y, '+500');
+                            const baseScore = 500;
+                            const comboBonus = baseScore * (this.combo - 1) * 0.5;
+                            const totalScore = Math.floor(baseScore + comboBonus);
+                            this.score += totalScore;
+                            this.createScoreAnimation(cell.x, cell.y, `+${totalScore}${this.combo > 1 ? ' x' + this.combo : ''}`);
                             this.createDeathParticles(cell.x, cell.y);
                         } else {
                             this.score += 100;
@@ -513,8 +642,11 @@ class BombermanGame {
                         enemy.alive = false;
                         enemy.deathTime = Date.now();
                         enemy.deathAnimation = true;
-                        this.score += 200;
-                        this.createScoreAnimation(cell.x, cell.y, '+200');
+                        const baseScore = 200;
+                        const comboBonus = baseScore * (this.combo - 1) * 0.5;
+                        const totalScore = Math.floor(baseScore + comboBonus);
+                        this.score += totalScore;
+                        this.createScoreAnimation(cell.x, cell.y, `+${totalScore}${this.combo > 1 ? ' x' + this.combo : ''}`);
                         this.createDeathParticles(cell.x, cell.y);
                     }
                 }
@@ -577,8 +709,13 @@ class BombermanGame {
     }
     
     checkCollisions() {
+        // Check invincibilità
+        if (this.player.invincible && Date.now() > this.player.invincibleUntil) {
+            this.player.invincible = false;
+        }
+        
         this.enemies.forEach(enemy => {
-            if (enemy.alive && enemy.x === this.player.x && enemy.y === this.player.y) {
+            if (enemy.alive && enemy.x === this.player.x && enemy.y === this.player.y && !this.player.invincible) {
                 this.player.lives--;
                 this.startFlashScreen('#ff6b6b', 0.5, 150); // Flash when hit
                 
@@ -591,9 +728,14 @@ class BombermanGame {
                     this.audioManager.playGameOver();
                     setTimeout(() => this.audioManager.speakGameOver(), 500);
                 } else {
-                    // Respawn player
+                    // Respawn player con invincibilità
                     this.player.x = 1;
                     this.player.y = 1;
+                    this.player.renderX = 1;
+                    this.player.renderY = 1;
+                    this.player.invincible = true;
+                    this.player.invincibleUntil = Date.now() + 3000; // 3 secondi
+                    console.log('Player respawned con invincibilità');
                 }
             }
         });
@@ -634,6 +776,14 @@ class BombermanGame {
                 this.player.bombPower++;
                 this.score += 50;
                 this.createScoreAnimation(powerup.x, powerup.y, '+50');
+            } else if (powerup.type === 'speed') {
+                // Speed power-up: riduce il tempo tra movimenti (più veloce)
+                const minSpeed = 80; // Cap massimo velocità
+                this.player.speed = Math.max(minSpeed, this.player.speed - 20);
+                this.player.hasSpeedBoost = true;
+                this.score += 50;
+                this.createScoreAnimation(powerup.x, powerup.y, '+50 SPEED!');
+                console.log('⚡ Speed boost! New speed:', this.player.speed);
             }
             
             // Suono power-up
@@ -681,7 +831,7 @@ class BombermanGame {
                 life: 1.0,
                 decay: 0.02,
                 size: 4 + Math.random() * 4,
-                color: ['#ff6b00', '#ffaa00', '#0096ff'][Math.floor(Math.random() * 3)],
+                color: ['#000000', '#0096ff', '#4ecdc4'][Math.floor(Math.random() * 3)], // Inter colors!
                 type: 'circle',
                 glow: true
             });
@@ -805,6 +955,48 @@ class BombermanGame {
                 size: 6 + Math.random() * 6,
                 color: 'rgba(139, 69, 19, 0.4)',
                 type: 'smoke',
+                opacity: 0.5
+            });
+        }
+    }
+    
+    createPlayerTrail() {
+        const centerX = this.player.renderX * this.gridSize + this.gridSize / 2;
+        const centerY = this.player.renderY * this.gridSize + this.gridSize / 2;
+        
+        // Trail particle
+        this.particles.push({
+            x: centerX,
+            y: centerY,
+            vx: 0,
+            vy: 0,
+            life: 1.0,
+            decay: 0.05,
+            size: this.gridSize * 0.8,
+            color: this.player.hasSpeedBoost ? 'rgba(0, 255, 0, 0.3)' : 'rgba(78, 205, 196, 0.3)',
+            type: 'trail',
+            glow: false
+        });
+    }
+    
+    createDustParticles(x, y) {
+        const centerX = x * this.gridSize + this.gridSize / 2;
+        const centerY = y * this.gridSize + this.gridSize / 2;
+        
+        // Dust particles
+        for (let i = 0; i < 3; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.5 + Math.random() * 0.5;
+            this.particles.push({
+                x: centerX + (Math.random() - 0.5) * this.gridSize,
+                y: centerY + (Math.random() - 0.5) * this.gridSize,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.3,
+                life: 1.0,
+                decay: 0.03,
+                size: 2 + Math.random() * 3,
+                color: 'rgba(200, 200, 200, 0.5)',
+                type: 'dust',
                 opacity: 0.5
             });
         }
@@ -1075,7 +1267,36 @@ class BombermanGame {
         });
         
         // Player con animazioni (usa posizione interpolata)
-        this.drawCharacter(this.player.renderX, this.player.renderY, 'Dionis', this.player.emoji, this.player);
+        // Speed boost indicator
+        if (this.player.hasSpeedBoost) {
+            const centerX = this.player.renderX * this.gridSize + this.gridSize / 2;
+            const centerY = this.player.renderY * this.gridSize + this.gridSize / 2;
+            
+            this.ctx.save();
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = '#00ff00';
+            this.ctx.strokeStyle = '#00ff00';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, this.gridSize / 2 + 3, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
+        
+        // Flash effect durante invincibilità
+        if (this.player.invincible) {
+            const flashSpeed = 100;
+            if (Math.floor(Date.now() / flashSpeed) % 2 === 0) {
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.5;
+                this.drawCharacter(this.player.renderX, this.player.renderY, 'Dionis', this.player.emoji, this.player);
+                this.ctx.restore();
+            } else {
+                this.drawCharacter(this.player.renderX, this.player.renderY, 'Dionis', this.player.emoji, this.player);
+            }
+        } else {
+            this.drawCharacter(this.player.renderX, this.player.renderY, 'Dionis', this.player.emoji, this.player);
+        }
         
         // Score animations
         this.scoreAnimations.forEach(s => {
@@ -1106,13 +1327,13 @@ class BombermanGame {
     }
     
     drawBackground() {
-        // Gradient background animato basato sul livello
+        // Gradient background animato basato sul livello - PALETTE PASTELLO
         const gradients = [
-            ['#1a1a2e', '#16213e'], // Level 1: Dark blue
-            ['#2d1b2e', '#1f1326'], // Level 2: Purple
-            ['#1e2d1b', '#13261f'], // Level 3: Dark green
-            ['#2e1b1b', '#261313'], // Level 4: Dark red
-            ['#2e2a1b', '#262213']  // Level 5: Dark gold
+            ['#a8dadc', '#f1faee'], // Level 1: Soft blue/cream
+            ['#e9c6e9', '#f8e8f8'], // Level 2: Soft lavender
+            ['#c8e6c9', '#e8f5e9'], // Level 3: Soft mint
+            ['#ffcccb', '#ffe4e1'], // Level 4: Soft coral
+            ['#fff4b3', '#fffacd']  // Level 5: Soft yellow
         ];
         
         const colors = gradients[this.currentLevel - 1] || gradients[0];
@@ -1240,33 +1461,58 @@ class BombermanGame {
         
         // Bounce effect (elastic)
         const bounceSpeed = 0.003;
-        const bounceHeight = 8;
+        const bounceHeight = 6;
         const bounce = Math.abs(Math.sin(time * bounceSpeed)) * bounceHeight;
         
         // Pulse effect
-        const pulse = Math.sin(time / 200) * 0.15 + 1;
+        const pulse = Math.sin(time / 200) * 0.1 + 1;
         
         // Rotation effect
-        const rotation = Math.sin(time * 0.002) * 0.2;
+        const rotation = Math.sin(time * 0.002) * 0.15;
+        
+        const size = this.gridSize * 0.5; // Più piccolo e nitido
         
         this.ctx.save();
         
         // Glow effect
-        this.ctx.shadowBlur = 20;
+        this.ctx.shadowBlur = 15;
         this.ctx.shadowColor = powerup.type === 'bombs' ? '#ff6b00' : '#ff0000';
         
         // Translate and rotate
         this.ctx.translate(x, y - bounce);
         this.ctx.rotate(rotation);
         
-        // Draw icon with pulse
-        this.ctx.font = `${32 * pulse}px Arial`;
+        // Draw background circle
+        let bgColor, icon;
+        if (powerup.type === 'bombs') {
+            bgColor = '#ff6b00';
+            icon = '💣';
+        } else if (powerup.type === 'power') {
+            bgColor = '#ff0000';
+            icon = '🔥';
+        } else if (powerup.type === 'speed') {
+            bgColor = '#00ff00';
+            icon = '⚡';
+        }
+        
+        this.ctx.fillStyle = bgColor;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size / 2 * pulse, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw outline
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size / 2 * pulse, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Draw icon (più piccolo e nitido)
+        this.ctx.font = `bold ${size * 0.7}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(
-            powerup.type === 'bombs' ? '💣' : '🔥',
-            0, 0
-        );
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillText(icon, 0, 0);
         
         this.ctx.restore();
         
@@ -1275,7 +1521,7 @@ class BombermanGame {
         this.ctx.globalAlpha = 0.3 * (1 - bounce / bounceHeight);
         this.ctx.fillStyle = '#000';
         this.ctx.beginPath();
-        this.ctx.ellipse(x, y + 5, 12, 4, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(x, y + 5, 10, 3, 0, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.restore();
     }
@@ -1288,18 +1534,20 @@ class BombermanGame {
         
         // Squash & stretch animation (più veloce quando sta per esplodere)
         const squashSpeed = 100 - urgency * 80;
-        const squashAmount = 0.15 + urgency * 0.1;
+        const squashAmount = 0.12 + urgency * 0.08;
         const squash = Math.sin(Date.now() / squashSpeed) * squashAmount;
         
         // Scale X e Y per squash & stretch
         const scaleX = 1 + squash;
         const scaleY = 1 - squash * 0.7;
         
+        const size = this.gridSize * 0.6; // Più piccolo e nitido
+        
         this.ctx.save();
         
         // Red glow when about to explode
         if (urgency > 0.7) {
-            this.ctx.shadowBlur = 25 * urgency;
+            this.ctx.shadowBlur = 20 * urgency;
             this.ctx.shadowColor = '#ff0000';
         }
         
@@ -1307,22 +1555,45 @@ class BombermanGame {
         this.ctx.translate(x, y);
         this.ctx.scale(scaleX, scaleY);
         
-        // Draw bomb
-        this.ctx.font = `${32}px Arial`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText('💣', 0, 0);
+        // Draw bomb body (black circle)
+        this.ctx.fillStyle = '#1a1a1a';
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw outline
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Draw highlight
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.beginPath();
+        this.ctx.arc(-size / 6, -size / 6, size / 6, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw fuse
+        this.ctx.strokeStyle = '#8B4513';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, -size / 2);
+        this.ctx.lineTo(size / 4, -size / 2 - 5);
+        this.ctx.stroke();
         
         this.ctx.restore();
         
         // Draw fuse spark when about to explode
         if (urgency > 0.5) {
             this.ctx.save();
-            this.ctx.globalAlpha = urgency;
-            this.ctx.fillStyle = '#ff6b00';
-            const sparkSize = 2 + Math.random() * 3;
+            this.ctx.globalAlpha = 0.7 + Math.random() * 0.3;
+            this.ctx.shadowBlur = 10;
+            this.ctx.shadowColor = '#ff6b00';
+            this.ctx.fillStyle = urgency > 0.8 ? '#ff0000' : '#ff6b00';
+            const sparkSize = 2 + Math.random() * 2;
             this.ctx.beginPath();
-            this.ctx.arc(x - 8, y - 12, sparkSize, 0, Math.PI * 2);
+            this.ctx.arc(x + size / 4, y - size / 2 - 5, sparkSize, 0, Math.PI * 2);
             this.ctx.fill();
             this.ctx.restore();
         }
@@ -1334,24 +1605,35 @@ class BombermanGame {
         const x = exp.x * this.gridSize;
         const y = exp.y * this.gridSize;
         
-        // Multi-layer explosion effect
-        // Layer 1: Core (white hot)
+        // Multi-layer explosion effect - INTER COLORS!
+        // Layer 1: Core (azzurro brillante)
         if (progress < 0.3) {
-            this.ctx.fillStyle = `rgba(255, 255, 255, ${1 - progress / 0.3})`;
+            this.ctx.save();
+            this.ctx.shadowBlur = 20;
+            this.ctx.shadowColor = '#0096ff';
+            this.ctx.fillStyle = `rgba(0, 150, 255, ${1 - progress / 0.3})`;
             this.ctx.fillRect(x, y, this.gridSize, this.gridSize);
+            this.ctx.restore();
         }
         
-        // Layer 2: Inter colors (blue/black)
+        // Layer 2: Inter colors alternati (azzurro/nero)
         const interBlue = progress < 0.5;
+        this.ctx.save();
+        this.ctx.shadowBlur = 15;
+        this.ctx.shadowColor = interBlue ? '#0096ff' : '#000000';
         if (interBlue) {
             this.ctx.fillStyle = `rgba(0, 150, 255, ${0.9 - progress})`;
         } else {
             this.ctx.fillStyle = `rgba(0, 0, 0, ${0.9 - progress})`;
         }
         this.ctx.fillRect(x, y, this.gridSize, this.gridSize);
+        this.ctx.restore();
         
-        // Layer 3: Expanding ring
-        this.ctx.strokeStyle = `rgba(255, 200, 0, ${1 - progress})`;
+        // Layer 3: Expanding ring azzurro Inter
+        this.ctx.save();
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = '#0096ff';
+        this.ctx.strokeStyle = `rgba(0, 150, 255, ${1 - progress})`;
         this.ctx.lineWidth = 3;
         const ringSize = this.gridSize * (0.5 + progress * 0.5);
         this.ctx.strokeRect(
@@ -1360,6 +1642,7 @@ class BombermanGame {
             ringSize,
             ringSize
         );
+        this.ctx.restore();
     }
     
     drawParticle(particle) {
@@ -1431,6 +1714,22 @@ class BombermanGame {
                 this.ctx.fillStyle = gradient;
                 this.ctx.beginPath();
                 this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                break;
+                
+            case 'trail':
+                // Trail effect per player
+                this.ctx.fillStyle = particle.color;
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size / 2, 0, Math.PI * 2);
+                this.ctx.fill();
+                break;
+                
+            case 'dust':
+                // Dust particles
+                this.ctx.fillStyle = particle.color;
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size / 2, 0, Math.PI * 2);
                 this.ctx.fill();
                 break;
                 
@@ -1596,6 +1895,21 @@ class BombermanGame {
         this.ctx.textAlign = 'right';
         this.ctx.fillText(`${this.score}`, canvasWidth - 12, 23);
         
+        // Combo counter (se attivo)
+        if (this.combo > 1) {
+            const comboX = canvasWidth / 2;
+            const comboY = 50;
+            
+            this.ctx.save();
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = '#ff00ff';
+            this.ctx.font = 'bold 24px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillStyle = '#ff00ff';
+            this.ctx.fillText(`${this.combo}x COMBO!`, comboX, comboY);
+            this.ctx.restore();
+        }
+        
         // === BOSS HEALTH BAR (se presente) - Ultra compatto ===
         const boss = this.enemies.find(e => e.isBoss && e.alive);
         if (boss && boss.health) {
@@ -1692,6 +2006,7 @@ class BombermanGame {
         this.updatePlayerInterpolation(); // Smooth movement
         this.moveEnemies(currentTime);
         this.updateBombs(currentTime);
+        this.updateMovingBombs(currentTime); // Bomb kick mechanic
         this.updateExplosions(currentTime);
         this.updateParticles();
         this.updateScoreAnimations();

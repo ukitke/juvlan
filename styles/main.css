@@ -15,8 +15,8 @@ html {
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
-    color: #ffffff;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    color: #2d3748;
+    background: linear-gradient(135deg, #f7fafc 0%, #e2e8f0 100%);
     min-height: 100vh;
     overflow-x: hidden;
 }
@@ -61,7 +61,7 @@ body {
     font-size: 3rem;
     font-weight: 900;
     text-align: center;
-    background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+    background: linear-gradient(45deg, #ff8fab, #81c3d7, #a8dadc);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -72,7 +72,7 @@ body {
 
 .game-subtitle {
     text-align: center;
-    color: #cccccc;
+    color: #718096;
     font-size: 1.1rem;
     margin-bottom: 2rem;
 }
@@ -190,13 +190,14 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(45deg, #4ecdc4, #45b7d1);
-    color: white;
+    background: linear-gradient(45deg, #81c3d7, #a8dadc);
+    color: #2d3748;
+    font-weight: 700;
 }
 
 .btn-primary:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+    box-shadow: 0 4px 12px rgba(129, 195, 215, 0.4);
 }
 
 .btn-primary:disabled {
@@ -207,24 +208,24 @@ body {
 
 .btn-secondary {
     background: transparent;
-    color: #4ecdc4;
-    border: 2px solid #4ecdc4;
+    color: #81c3d7;
+    border: 2px solid #81c3d7;
 }
 
 .btn-secondary:hover {
-    background: #4ecdc4;
-    color: #1a1a1a;
+    background: #81c3d7;
+    color: #2d3748;
 }
 
 .btn-tertiary {
     background: transparent;
-    color: #ff6b6b;
-    border: 2px solid #ff6b6b;
+    color: #ff8fab;
+    border: 2px solid #ff8fab;
 }
 
 .btn-tertiary:hover {
-    background: #ff6b6b;
-    color: white;
+    background: #ff8fab;
+    color: #2d3748;
 }
 
 /* Instructions */
@@ -602,7 +603,7 @@ body {
     height: auto;
 }
 
-/* Virtual Controls for Phase 2 */
+/* Virtual Controls for Phase 2 - MIGLIORATI */
 #virtual-joystick {
     position: fixed;
     bottom: 20px;
@@ -615,48 +616,48 @@ body {
 }
 
 .joystick-base {
-    width: 120px;
-    height: 120px;
-    background: rgba(78, 205, 196, 0.5);
-    border: 4px solid #4ecdc4;
+    width: 150px;
+    height: 150px;
+    background: rgba(78, 205, 196, 0.4);
+    border: 5px solid #4ecdc4;
     border-radius: 50%;
     position: relative;
     touch-action: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     pointer-events: auto;
     cursor: pointer;
 }
 
 .joystick-stick {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     background: #4ecdc4;
-    border: 3px solid white;
+    border: 4px solid white;
     border-radius: 50%;
     position: absolute;
-    left: 60px;
-    top: 60px;
+    left: 75px;
+    top: 75px;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
 }
 
 #bomb-button {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 90px;
-    height: 90px;
+    width: 110px;
+    height: 110px;
     background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-    border: 4px solid #ff6b6b;
+    border: 5px solid #ff6b6b;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 45px;
+    font-size: 55px;
     z-index: 99999;
     touch-action: none;
-    box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6);
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.7);
     visibility: visible;
     opacity: 1;
     pointer-events: auto;

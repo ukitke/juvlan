@@ -480,12 +480,29 @@ class UIManager {
         const optionsContainer = document.getElementById('answer-options');
         optionsContainer.innerHTML = '';
         
-        question.options.forEach((option, index) => {
+        // Shuffle options per randomizzare posizione risposta corretta
+        if (!question.shuffledOptions) {
+            const optionsWithIndex = question.options.map((option, index) => ({
+                text: option,
+                originalIndex: index
+            }));
+            
+            // Fisher-Yates shuffle
+            for (let i = optionsWithIndex.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [optionsWithIndex[i], optionsWithIndex[j]] = [optionsWithIndex[j], optionsWithIndex[i]];
+            }
+            
+            question.shuffledOptions = optionsWithIndex;
+        }
+        
+        question.shuffledOptions.forEach((option, displayIndex) => {
             const button = document.createElement('button');
             button.className = 'answer-btn';
-            button.textContent = option;
-            button.dataset.index = index;
-            button.style.pointerEvents = 'auto'; // Assicura che i pulsanti siano cliccabili
+            button.textContent = option.text;
+            button.dataset.originalIndex = option.originalIndex; // Mantieni index originale
+            button.dataset.displayIndex = displayIndex;
+            button.style.pointerEvents = 'auto';
             
             optionsContainer.appendChild(button);
         });
@@ -533,16 +550,17 @@ class UIManager {
     updateAnswerButtonStates(result, question) {
         const answerButtons = document.querySelectorAll('.answer-btn');
         
-        answerButtons.forEach((btn, index) => {
+        answerButtons.forEach((btn) => {
             btn.style.pointerEvents = 'none';
+            const originalIndex = parseInt(btn.dataset.originalIndex);
             
-            if (index === result.selectedAnswer) {
+            if (originalIndex === result.selectedAnswer) {
                 btn.classList.add('selected');
             }
             
-            if (index === question.correctAnswer) {
+            if (originalIndex === question.correctAnswer) {
                 btn.classList.add('correct');
-            } else if (index === result.selectedAnswer && !result.correct) {
+            } else if (originalIndex === result.selectedAnswer && !result.correct) {
                 btn.classList.add('incorrect');
             }
         });
@@ -740,11 +758,12 @@ class JuvlanApp {
         const answerButtons = document.querySelectorAll('.answer-btn');
         console.log('JUVLAN: Configurando handler per', answerButtons.length, 'pulsanti');
         
-        answerButtons.forEach((btn, index) => {
-            // Aggiungi event listener direttamente (i pulsanti sono appena creati, non hanno listener vecchi)
+        answerButtons.forEach((btn) => {
             btn.addEventListener('click', () => {
-                console.log('JUVLAN: Pulsante cliccato, index:', index);
-                this.handleAnswer(question, index);
+                // Usa originalIndex per verificare risposta corretta
+                const originalIndex = parseInt(btn.dataset.originalIndex);
+                console.log('JUVLAN: Pulsante cliccato, originalIndex:', originalIndex);
+                this.handleAnswer(question, originalIndex);
             });
         });
     }

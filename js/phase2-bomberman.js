@@ -87,7 +87,7 @@ class BombermanGame {
     calculateOptimalCanvasSize() {
         // Calcola dimensioni ottimali basate sullo schermo disponibile
         const maxWidth = window.innerWidth - 40; // Margini
-        const maxHeight = window.innerHeight - 200; // Spazio per UI e controlli
+        const maxHeight = window.innerHeight - 150; // Usa più spazio verticale
         
         // Griglia fissa
         this.cols = 15;
@@ -98,8 +98,8 @@ class BombermanGame {
         const gridSizeByHeight = Math.floor(maxHeight / this.rows);
         
         // Usa il più piccolo per garantire che tutto sia visibile
-        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 50); // Max 50px per cella
-        this.gridSize = Math.max(this.gridSize, 25); // Min 25px per cella
+        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 60); // Max 60px per cella (aumentato)
+        this.gridSize = Math.max(this.gridSize, 35); // Min 35px per cella (aumentato)
         
         // Imposta dimensioni canvas
         this.canvas.width = this.cols * this.gridSize;
@@ -260,6 +260,47 @@ class BombermanGame {
         });
     }
     
+    highlightActiveDirection(x, y) {
+        const indicators = document.querySelectorAll('.joystick-direction-indicator');
+        indicators.forEach(ind => ind.style.color = 'rgba(255, 255, 255, 0.4)');
+        
+        const threshold = 0.3;
+        const magnitude = Math.sqrt(x * x + y * y);
+        
+        if (magnitude > threshold) {
+            const angle = Math.atan2(y, x);
+            let degrees = angle * (180 / Math.PI);
+            if (degrees < 0) degrees += 360;
+            
+            // Evidenzia direzione principale
+            if ((degrees >= 337.5 || degrees < 22.5) || (degrees >= 22.5 && degrees < 67.5) || (degrees >= 292.5 && degrees < 337.5)) {
+                // Destra
+                const right = document.querySelector('.joystick-direction-indicator.right');
+                if (right) right.style.color = 'rgba(69, 183, 209, 1)';
+            }
+            if ((degrees >= 67.5 && degrees < 112.5) || (degrees >= 22.5 && degrees < 67.5) || (degrees >= 112.5 && degrees < 157.5)) {
+                // Su
+                const up = document.querySelector('.joystick-direction-indicator.up');
+                if (up) up.style.color = 'rgba(69, 183, 209, 1)';
+            }
+            if ((degrees >= 157.5 && degrees < 202.5) || (degrees >= 112.5 && degrees < 157.5) || (degrees >= 202.5 && degrees < 247.5)) {
+                // Sinistra
+                const left = document.querySelector('.joystick-direction-indicator.left');
+                if (left) left.style.color = 'rgba(69, 183, 209, 1)';
+            }
+            if ((degrees >= 247.5 && degrees < 292.5) || (degrees >= 202.5 && degrees < 247.5) || (degrees >= 292.5 && degrees < 337.5)) {
+                // Giù
+                const down = document.querySelector('.joystick-direction-indicator.down');
+                if (down) down.style.color = 'rgba(69, 183, 209, 1)';
+            }
+        }
+    }
+    
+    clearDirectionHighlights() {
+        const indicators = document.querySelectorAll('.joystick-direction-indicator');
+        indicators.forEach(ind => ind.style.color = 'rgba(255, 255, 255, 0.4)');
+    }
+    
     setupTouchControls() {
         console.log('🎮 Creando controlli touch...');
         
@@ -268,6 +309,10 @@ class BombermanGame {
         joystick.id = 'virtual-joystick';
         joystick.innerHTML = `
             <div class="joystick-base">
+                <div class="joystick-direction-indicator up">▲</div>
+                <div class="joystick-direction-indicator right">▶</div>
+                <div class="joystick-direction-indicator down">▼</div>
+                <div class="joystick-direction-indicator left">◀</div>
                 <div class="joystick-stick" id="joystick-stick"></div>
             </div>
         `;
@@ -324,6 +369,10 @@ class BombermanGame {
                 this.touchControls.joystick.y = deltaY / maxDistance;
             }
             
+            // Evidenzia direzione attiva
+            stick.classList.add('active');
+            this.highlightActiveDirection(this.touchControls.joystick.x, this.touchControls.joystick.y);
+            
             this.touchControls.joystick.active = true;
         });
         
@@ -331,6 +380,8 @@ class BombermanGame {
             joystickActive = false;
             stick.style.left = '75px'; // Centro aggiornato per joystick 150px
             stick.style.top = '75px';
+            stick.classList.remove('active');
+            this.clearDirectionHighlights();
             this.touchControls.joystick.active = false;
             this.touchControls.joystick.x = 0;
             this.touchControls.joystick.y = 0;
@@ -372,27 +423,82 @@ class BombermanGame {
             moved = true;
         }
         
-        // Touch controls (joystick)
+        // Touch controls (joystick) - Sistema a zone direzionali precise
         if (this.touchControls.joystick.active) {
-            const threshold = 0.2; // Ridotto per maggiore fluidità
-            if (Math.abs(this.touchControls.joystick.x) > Math.abs(this.touchControls.joystick.y)) {
-                if (this.touchControls.joystick.x > threshold) {
+            const threshold = 0.3; // Threshold più alto per evitare input accidentali
+            const x = this.touchControls.joystick.x;
+            const y = this.touchControls.joystick.y;
+            
+            // Calcola angolo per determinare direzione precisa
+            const angle = Math.atan2(y, x);
+            const magnitude = Math.sqrt(x * x + y * y);
+            
+            if (magnitude > threshold) {
+                // Converti angolo in gradi (0-360)
+                let degrees = angle * (180 / Math.PI);
+                if (degrees < 0) degrees += 360;
+                
+                // Zone direzionali a 8 direzioni (più precise)
+                // Destra: 337.5-22.5°, Su: 67.5-112.5°, Sinistra: 157.5-202.5°, Giù: 247.5-292.5°
+                if ((degrees >= 337.5 || degrees < 22.5)) {
+                    // Destra pura
                     newX++;
                     this.player.direction = 'right';
                     moved = true;
-                } else if (this.touchControls.joystick.x < -threshold) {
+                } else if (degrees >= 22.5 && degrees < 67.5) {
+                    // Destra-Su (priorità destra)
+                    if (Math.abs(x) > Math.abs(y) * 1.5) {
+                        newX++;
+                        this.player.direction = 'right';
+                    } else {
+                        newY--;
+                        this.player.direction = 'up';
+                    }
+                    moved = true;
+                } else if (degrees >= 67.5 && degrees < 112.5) {
+                    // Su pura
+                    newY--;
+                    this.player.direction = 'up';
+                    moved = true;
+                } else if (degrees >= 112.5 && degrees < 157.5) {
+                    // Sinistra-Su (priorità sinistra)
+                    if (Math.abs(x) > Math.abs(y) * 1.5) {
+                        newX--;
+                        this.player.direction = 'left';
+                    } else {
+                        newY--;
+                        this.player.direction = 'up';
+                    }
+                    moved = true;
+                } else if (degrees >= 157.5 && degrees < 202.5) {
+                    // Sinistra pura
                     newX--;
                     this.player.direction = 'left';
                     moved = true;
-                }
-            } else {
-                if (this.touchControls.joystick.y > threshold) {
+                } else if (degrees >= 202.5 && degrees < 247.5) {
+                    // Sinistra-Giù (priorità sinistra)
+                    if (Math.abs(x) > Math.abs(y) * 1.5) {
+                        newX--;
+                        this.player.direction = 'left';
+                    } else {
+                        newY++;
+                        this.player.direction = 'down';
+                    }
+                    moved = true;
+                } else if (degrees >= 247.5 && degrees < 292.5) {
+                    // Giù pura
                     newY++;
                     this.player.direction = 'down';
                     moved = true;
-                } else if (this.touchControls.joystick.y < -threshold) {
-                    newY--;
-                    this.player.direction = 'up';
+                } else if (degrees >= 292.5 && degrees < 337.5) {
+                    // Destra-Giù (priorità destra)
+                    if (Math.abs(x) > Math.abs(y) * 1.5) {
+                        newX++;
+                        this.player.direction = 'right';
+                    } else {
+                        newY++;
+                        this.player.direction = 'down';
+                    }
                     moved = true;
                 }
             }
@@ -492,13 +598,17 @@ class BombermanGame {
                     const newX = bomb.x + bomb.velocity.dx;
                     const newY = bomb.y + bomb.velocity.dy;
                     
-                    // Check se può muoversi
-                    if (this.canMoveTo(newX, newY, false)) {
+                    // Check se può muoversi (inclusi nemici come ostacoli)
+                    const hasWall = this.walls.some(w => w.x === newX && w.y === newY);
+                    const hasEnemy = this.enemies.some(e => e.alive && e.x === newX && e.y === newY);
+                    const hasOtherBomb = this.bombs.some(b => b !== bomb && b.x === newX && b.y === newY);
+                    
+                    if (!hasWall && !hasEnemy && !hasOtherBomb) {
                         bomb.x = newX;
                         bomb.y = newY;
                         bomb.lastMoveTime = currentTime;
                     } else {
-                        // Ferma bomba su ostacolo
+                        // Ferma bomba su ostacolo (muro, nemico o altra bomba)
                         bomb.velocity = null;
                         console.log('💥 Bomba fermata su ostacolo');
                     }
@@ -1910,10 +2020,10 @@ class BombermanGame {
             this.ctx.restore();
         }
         
-        // === BOSS HEALTH BAR (se presente) - Ultra compatto ===
+        // === BOSS HEALTH BAR (se presente) - FUORI DAL CANVAS ===
         const boss = this.enemies.find(e => e.isBoss && e.alive);
         if (boss && boss.health) {
-            const bossBarY = 45;
+            const bossBarY = canvasHeight + 10; // Posizionato SOTTO il canvas
             const bossBarWidth = canvasWidth - 10;
             
             // Background - più trasparente e piccolo

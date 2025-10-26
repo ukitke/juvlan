@@ -86,8 +86,8 @@ class BombermanGame {
     
     calculateOptimalCanvasSize() {
         // Calcola dimensioni ottimali basate sullo schermo disponibile
-        const maxWidth = window.innerWidth - 40; // Margini
-        const maxHeight = window.innerHeight - 150; // Usa più spazio verticale
+        const maxWidth = window.innerWidth - 20; // Margini ridotti per più spazio
+        const maxHeight = window.innerHeight - 100; // Usa ancora più spazio verticale (5cm = ~100px)
         
         // Griglia fissa
         this.cols = 15;
@@ -98,8 +98,8 @@ class BombermanGame {
         const gridSizeByHeight = Math.floor(maxHeight / this.rows);
         
         // Usa il più piccolo per garantire che tutto sia visibile
-        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 60); // Max 60px per cella (aumentato)
-        this.gridSize = Math.max(this.gridSize, 35); // Min 35px per cella (aumentato)
+        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 80); // Max 80px per cella (molto più grande)
+        this.gridSize = Math.max(this.gridSize, 45); // Min 45px per cella (molto più grande)
         
         // Imposta dimensioni canvas
         this.canvas.width = this.cols * this.gridSize;
@@ -268,7 +268,7 @@ class BombermanGame {
         const magnitude = Math.sqrt(x * x + y * y);
         
         if (magnitude > threshold) {
-            const angle = Math.atan2(y, x);
+            const angle = Math.atan2(-y, x); // -y per correggere coordinate
             let degrees = angle * (180 / Math.PI);
             if (degrees < 0) degrees += 360;
             
@@ -429,8 +429,8 @@ class BombermanGame {
             const x = this.touchControls.joystick.x;
             const y = this.touchControls.joystick.y;
             
-            // Calcola angolo per determinare direzione precisa
-            const angle = Math.atan2(y, x);
+            // Calcola angolo per determinare direzione precisa (inverti Y per coordinate gioco)
+            const angle = Math.atan2(-y, x); // -y perché Y positivo nel touch va giù, ma nel gioco su
             const magnitude = Math.sqrt(x * x + y * y);
             
             if (magnitude > threshold) {
@@ -456,7 +456,7 @@ class BombermanGame {
                     }
                     moved = true;
                 } else if (degrees >= 67.5 && degrees < 112.5) {
-                    // Su pura
+                    // Su pura (Y negativo va verso l'alto)
                     newY--;
                     this.player.direction = 'up';
                     moved = true;
@@ -486,7 +486,7 @@ class BombermanGame {
                     }
                     moved = true;
                 } else if (degrees >= 247.5 && degrees < 292.5) {
-                    // Giù pura
+                    // Giù pura (Y positivo va verso il basso)
                     newY++;
                     this.player.direction = 'down';
                     moved = true;

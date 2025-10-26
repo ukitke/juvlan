@@ -87,7 +87,7 @@ class BombermanGame {
     calculateOptimalCanvasSize() {
         // Calcola dimensioni ottimali basate sullo schermo disponibile
         const maxWidth = window.innerWidth - 20; // Margini ridotti per più spazio
-        const maxHeight = window.innerHeight - 100; // Usa ancora più spazio verticale (5cm = ~100px)
+        const maxHeight = window.innerHeight - 50; // MASSIMO spazio verticale (solo 50px per controlli)
         
         // Griglia fissa
         this.cols = 15;
@@ -98,8 +98,8 @@ class BombermanGame {
         const gridSizeByHeight = Math.floor(maxHeight / this.rows);
         
         // Usa il più piccolo per garantire che tutto sia visibile
-        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 80); // Max 80px per cella (molto più grande)
-        this.gridSize = Math.max(this.gridSize, 45); // Min 45px per cella (molto più grande)
+        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 100); // Max 100px per cella (GIGANTE!)
+        this.gridSize = Math.max(this.gridSize, 50); // Min 50px per cella (MOLTO più grande)
         
         // Imposta dimensioni canvas
         this.canvas.width = this.cols * this.gridSize;
@@ -272,14 +272,14 @@ class BombermanGame {
             let degrees = angle * (180 / Math.PI);
             if (degrees < 0) degrees += 360;
             
-            // Evidenzia direzione principale
+            // Evidenzia direzione principale (corrette con -y)
             if ((degrees >= 337.5 || degrees < 22.5) || (degrees >= 22.5 && degrees < 67.5) || (degrees >= 292.5 && degrees < 337.5)) {
                 // Destra
                 const right = document.querySelector('.joystick-direction-indicator.right');
                 if (right) right.style.color = 'rgba(69, 183, 209, 1)';
             }
             if ((degrees >= 67.5 && degrees < 112.5) || (degrees >= 22.5 && degrees < 67.5) || (degrees >= 112.5 && degrees < 157.5)) {
-                // Su
+                // Su (ora corretto)
                 const up = document.querySelector('.joystick-direction-indicator.up');
                 if (up) up.style.color = 'rgba(69, 183, 209, 1)';
             }
@@ -289,7 +289,7 @@ class BombermanGame {
                 if (left) left.style.color = 'rgba(69, 183, 209, 1)';
             }
             if ((degrees >= 247.5 && degrees < 292.5) || (degrees >= 202.5 && degrees < 247.5) || (degrees >= 292.5 && degrees < 337.5)) {
-                // Giù
+                // Giù (ora corretto)
                 const down = document.querySelector('.joystick-direction-indicator.down');
                 if (down) down.style.color = 'rgba(69, 183, 209, 1)';
             }
@@ -354,16 +354,17 @@ class BombermanGame {
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             const maxDistance = 60; // Aumentato per joystick più grande
             
+            const centerOffset = 75; // Centro del joystick 150px
             if (distance > maxDistance) {
                 const angle = Math.atan2(deltaY, deltaX);
-                stick.style.left = `${Math.cos(angle) * maxDistance + 75}px`;
-                stick.style.top = `${Math.sin(angle) * maxDistance + 75}px`;
+                stick.style.left = `${Math.cos(angle) * maxDistance + centerOffset}px`;
+                stick.style.top = `${Math.sin(angle) * maxDistance + centerOffset}px`;
                 
                 this.touchControls.joystick.x = Math.cos(angle);
                 this.touchControls.joystick.y = Math.sin(angle);
             } else {
-                stick.style.left = `${deltaX + 75}px`;
-                stick.style.top = `${deltaY + 75}px`;
+                stick.style.left = `${deltaX + centerOffset}px`;
+                stick.style.top = `${deltaY + centerOffset}px`;
                 
                 this.touchControls.joystick.x = deltaX / maxDistance;
                 this.touchControls.joystick.y = deltaY / maxDistance;
@@ -378,8 +379,8 @@ class BombermanGame {
         
         base.addEventListener('touchend', () => {
             joystickActive = false;
-            stick.style.left = '75px'; // Centro aggiornato per joystick 150px
-            stick.style.top = '75px';
+            stick.style.left = '50%'; // Centro perfetto
+            stick.style.top = '50%';
             stick.classList.remove('active');
             this.clearDirectionHighlights();
             this.touchControls.joystick.active = false;

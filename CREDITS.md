@@ -1,4 +1,4 @@
-# 🎨 JUVLAN - Crediti e Attribuzioni
+status?# 🎨 JUVLAN - Crediti e Attribuzioni
 
 Documentazione completa delle risorse utilizzate nel gioco JUVLAN.
 

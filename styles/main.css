@@ -620,8 +620,8 @@ body {
 }
 
 .joystick-base {
-    width: 150px;
-    height: 150px;
+    width: 180px;
+    height: 180px;
     background: rgba(78, 205, 196, 0.4);
     border: 5px solid #4ecdc4;
     border-radius: 50%;
@@ -633,8 +633,8 @@ body {
 }
 
 .joystick-stick {
-    width: 60px;
-    height: 60px;
+    width: 70px;
+    height: 70px;
     background: #4ecdc4;
     border: 4px solid white;
     border-radius: 50%;
@@ -655,32 +655,33 @@ body {
 .joystick-direction-indicator {
     position: absolute;
     color: rgba(255, 255, 255, 0.4);
-    font-size: 20px;
+    font-size: 24px;
     font-weight: bold;
     pointer-events: none;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: color 0.1s ease;
 }
 
 .joystick-direction-indicator.up {
-    top: 10px;
+    top: 15px;
     left: 50%;
     transform: translateX(-50%);
 }
 
 .joystick-direction-indicator.right {
-    right: 10px;
+    right: 15px;
     top: 50%;
     transform: translateY(-50%);
 }
 
 .joystick-direction-indicator.down {
-    bottom: 10px;
+    bottom: 15px;
     left: 50%;
     transform: translateX(-50%);
 }
 
 .joystick-direction-indicator.left {
-    left: 10px;
+    left: 15px;
     top: 50%;
     transform: translateY(-50%);
 }
@@ -689,15 +690,15 @@ body {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 130px;
-    height: 130px;
+    width: 150px;
+    height: 150px;
     background: linear-gradient(45deg, #ff6b6b, #ff8e53);
     border: 5px solid #ff6b6b;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 65px;
+    font-size: 75px;
     z-index: 99999;
     touch-action: none;
     box-shadow: 0 6px 20px rgba(255, 107, 107, 0.7);

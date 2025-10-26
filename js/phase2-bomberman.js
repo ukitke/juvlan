@@ -74,6 +74,10 @@ class BombermanGame {
         this.playerTrail = [];
         this.lastTrailTime = 0;
         
+        // Input debounce per controlli più precisi
+        this.lastInputTime = 0;
+        this.inputDebounce = 100; // 100ms tra input per evitare spam
+        
         // Controls
         this.keys = {};
         this.touchControls = {
@@ -98,8 +102,8 @@ class BombermanGame {
         const gridSizeByHeight = Math.floor(maxHeight / this.rows);
         
         // Usa il più piccolo per garantire che tutto sia visibile
-        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 100); // Max 100px per cella (GIGANTE!)
-        this.gridSize = Math.max(this.gridSize, 50); // Min 50px per cella (MOLTO più grande)
+        this.gridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 120); // Max 120px per cella (ENORME!)
+        this.gridSize = Math.max(this.gridSize, 60); // Min 60px per cella (GIGANTE!)
         
         // Imposta dimensioni canvas
         this.canvas.width = this.cols * this.gridSize;
@@ -264,7 +268,7 @@ class BombermanGame {
         const indicators = document.querySelectorAll('.joystick-direction-indicator');
         indicators.forEach(ind => ind.style.color = 'rgba(255, 255, 255, 0.4)');
         
-        const threshold = 0.3;
+        const threshold = 0.4; // Threshold più alto
         const magnitude = Math.sqrt(x * x + y * y);
         
         if (magnitude > threshold) {
@@ -272,24 +276,21 @@ class BombermanGame {
             let degrees = angle * (180 / Math.PI);
             if (degrees < 0) degrees += 360;
             
-            // Evidenzia direzione principale (corrette con -y)
-            if ((degrees >= 337.5 || degrees < 22.5) || (degrees >= 22.5 && degrees < 67.5) || (degrees >= 292.5 && degrees < 337.5)) {
+            // Zone pure a 90° per massima precisione
+            if (degrees >= 315 || degrees < 45) {
                 // Destra
                 const right = document.querySelector('.joystick-direction-indicator.right');
                 if (right) right.style.color = 'rgba(69, 183, 209, 1)';
-            }
-            if ((degrees >= 67.5 && degrees < 112.5) || (degrees >= 22.5 && degrees < 67.5) || (degrees >= 112.5 && degrees < 157.5)) {
-                // Su (ora corretto)
+            } else if (degrees >= 45 && degrees < 135) {
+                // Su
                 const up = document.querySelector('.joystick-direction-indicator.up');
                 if (up) up.style.color = 'rgba(69, 183, 209, 1)';
-            }
-            if ((degrees >= 157.5 && degrees < 202.5) || (degrees >= 112.5 && degrees < 157.5) || (degrees >= 202.5 && degrees < 247.5)) {
+            } else if (degrees >= 135 && degrees < 225) {
                 // Sinistra
                 const left = document.querySelector('.joystick-direction-indicator.left');
                 if (left) left.style.color = 'rgba(69, 183, 209, 1)';
-            }
-            if ((degrees >= 247.5 && degrees < 292.5) || (degrees >= 202.5 && degrees < 247.5) || (degrees >= 292.5 && degrees < 337.5)) {
-                // Giù (ora corretto)
+            } else if (degrees >= 225 && degrees < 315) {
+                // Giù
                 const down = document.querySelector('.joystick-direction-indicator.down');
                 if (down) down.style.color = 'rgba(69, 183, 209, 1)';
             }
@@ -352,9 +353,9 @@ class BombermanGame {
             const deltaY = touch.clientY - joystickStartY;
             
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            const maxDistance = 60; // Aumentato per joystick più grande
+            const maxDistance = 75; // Aumentato per joystick 180px
             
-            const centerOffset = 75; // Centro del joystick 150px
+            const centerOffset = 90; // Centro del joystick 180px
             if (distance > maxDistance) {
                 const angle = Math.atan2(deltaY, deltaX);
                 stick.style.left = `${Math.cos(angle) * maxDistance + centerOffset}px`;
@@ -398,6 +399,11 @@ class BombermanGame {
     handleMovement(currentTime) {
         if (currentTime - this.lastMoveTime < this.player.speed) return;
         
+        // Debounce per controlli touch (evita input troppo veloci)
+        if (this.touchControls.joystick.active && currentTime - this.lastInputTime < this.inputDebounce) {
+            return;
+        }
+        
         let newX = this.player.x;
         let newY = this.player.y;
         let moved = false;
@@ -424,9 +430,9 @@ class BombermanGame {
             moved = true;
         }
         
-        // Touch controls (joystick) - Sistema a zone direzionali precise
+        // Touch controls (joystick) - Sistema a zone direzionali ULTRA precise
         if (this.touchControls.joystick.active) {
-            const threshold = 0.3; // Threshold più alto per evitare input accidentali
+            const threshold = 0.4; // Threshold ancora più alto per massima precisione
             const x = this.touchControls.joystick.x;
             const y = this.touchControls.joystick.y;
             
@@ -439,68 +445,32 @@ class BombermanGame {
                 let degrees = angle * (180 / Math.PI);
                 if (degrees < 0) degrees += 360;
                 
-                // Zone direzionali a 8 direzioni (più precise)
-                // Destra: 337.5-22.5°, Su: 67.5-112.5°, Sinistra: 157.5-202.5°, Giù: 247.5-292.5°
-                if ((degrees >= 337.5 || degrees < 22.5)) {
-                    // Destra pura
+                // Zone direzionali a 4 direzioni PURE (massima precisione)
+                // Zone a 90° per eliminare confusione
+                if ((degrees >= 315 || degrees < 45)) {
+                    // Destra pura (zona più ampia)
                     newX++;
                     this.player.direction = 'right';
                     moved = true;
-                } else if (degrees >= 22.5 && degrees < 67.5) {
-                    // Destra-Su (priorità destra)
-                    if (Math.abs(x) > Math.abs(y) * 1.5) {
-                        newX++;
-                        this.player.direction = 'right';
-                    } else {
-                        newY--;
-                        this.player.direction = 'up';
-                    }
-                    moved = true;
-                } else if (degrees >= 67.5 && degrees < 112.5) {
-                    // Su pura (Y negativo va verso l'alto)
+                    this.lastInputTime = currentTime; // Aggiorna debounce
+                } else if (degrees >= 45 && degrees < 135) {
+                    // Su pura (zona più ampia)
                     newY--;
                     this.player.direction = 'up';
                     moved = true;
-                } else if (degrees >= 112.5 && degrees < 157.5) {
-                    // Sinistra-Su (priorità sinistra)
-                    if (Math.abs(x) > Math.abs(y) * 1.5) {
-                        newX--;
-                        this.player.direction = 'left';
-                    } else {
-                        newY--;
-                        this.player.direction = 'up';
-                    }
-                    moved = true;
-                } else if (degrees >= 157.5 && degrees < 202.5) {
-                    // Sinistra pura
+                    this.lastInputTime = currentTime; // Aggiorna debounce
+                } else if (degrees >= 135 && degrees < 225) {
+                    // Sinistra pura (zona più ampia)
                     newX--;
                     this.player.direction = 'left';
                     moved = true;
-                } else if (degrees >= 202.5 && degrees < 247.5) {
-                    // Sinistra-Giù (priorità sinistra)
-                    if (Math.abs(x) > Math.abs(y) * 1.5) {
-                        newX--;
-                        this.player.direction = 'left';
-                    } else {
-                        newY++;
-                        this.player.direction = 'down';
-                    }
-                    moved = true;
-                } else if (degrees >= 247.5 && degrees < 292.5) {
-                    // Giù pura (Y positivo va verso il basso)
+                    this.lastInputTime = currentTime; // Aggiorna debounce
+                } else if (degrees >= 225 && degrees < 315) {
+                    // Giù pura (zona più ampia)
                     newY++;
                     this.player.direction = 'down';
                     moved = true;
-                } else if (degrees >= 292.5 && degrees < 337.5) {
-                    // Destra-Giù (priorità destra)
-                    if (Math.abs(x) > Math.abs(y) * 1.5) {
-                        newX++;
-                        this.player.direction = 'right';
-                    } else {
-                        newY++;
-                        this.player.direction = 'down';
-                    }
-                    moved = true;
+                    this.lastInputTime = currentTime; // Aggiorna debounce
                 }
             }
         }
